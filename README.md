@@ -8,8 +8,9 @@ Supabase, sem etapa de build, publicado pela Vercel.
 
 ## Etapas
 
-1. **Base** (esta): banco, login, perfis, empreendimentos, unidades e equipe.
-2. Leads e funil (kanban e lista), com o chat do site da DPR entrando como origem.
+1. **Base**: banco, login, perfis, empreendimentos, unidades e equipe.
+2. **Leads e funil** (esta): kanban e lista, ficha com linha do tempo, o chat do
+   site da DPR entrando como origem.
 3. Fila de atendimento, alertas de lead novo e app no celular (PWA).
 4. Follow-up, tarefas, modelos de WhatsApp e documentos do financiamento.
 5. Ranking de corretores, painel do gestor e relatorios.
@@ -24,7 +25,8 @@ Supabase, sem etapa de build, publicado pela Vercel.
 | Criar conta | Nome, e-mail, senha e nivel. Grava o login no Supabase Auth e o perfil em `crm_perfis`. O **primeiro** cadastro vira gestor na hora; os seguintes ficam **aguardando aprovacao** de um gestor (ver abaixo) |
 | Criar a senha | Quem chega pelo link do convite cria a senha antes de entrar |
 | Sem acesso | Login que existe mas nao esta na equipe (um cliente do portal, por exemplo) ve so esta tela |
-| Inicio | Resumo: empreendimentos ativos, unidades disponiveis, reservadas, vendidas, pessoas na equipe |
+| Inicio | Resumo: empreendimentos ativos, unidades disponiveis, reservadas, vendidas, pessoas na equipe; o funil em resumo (leads por etapa, novos nos ultimos 7 dias) |
+| Leads | O funil em **kanban** (uma coluna por etapa, cartoes arrastaveis no computador) ou em **lista** (busca por nome ou WhatsApp, filtros por empreendimento, origem, responsavel e etapa). "Novo lead": nome e WhatsApp obrigatorios; o WhatsApp e a chave, dois cadastros com o mesmo numero sao a mesma pessoa (o CRM abre o que ja existe). **Ficha do lead**: dados, etapa, responsavel, unidade de interesse, botao "Chamar no WhatsApp" com mensagem pronta, as dez respostas do assistente do site quando vierem de la, a linha do tempo (criacao, trocas de etapa e de responsavel entram sozinhas) e anotacoes. Mover para Perdido pede o motivo. O gestor renomeia e colore as etapas em "Etapas" |
 | Empreendimentos | Lista e cadastro (nome, cidade, UF, tipo, programa, status, observacoes), com a contagem de unidades por status |
 | Unidades | O espelho de vendas: uma peca por unidade, cor por status; filtro por empreendimento e status; cadastro de uma ou de varias de uma vez (CASA 01 a CASA 20) |
 | Equipe | Quem usa o CRM e com que papel; o gestor aprova ou recusa os cadastros novos (ajustando o nivel antes, se quiser), convida por e-mail, troca o papel e desativa (nunca apaga) |
@@ -57,9 +59,9 @@ nunca e gravada em tabela nossa: fica no Supabase Auth, criptografada.
 
 | Papel | Pode |
 |---|---|
-| gestor | tudo: convida, troca papel, desativa, edita empreendimentos e unidades |
-| administrativo | edita empreendimentos e unidades |
-| corretor | ve empreendimentos e unidades; nao edita (as proximas etapas dao a ele os leads dele) |
+| gestor | tudo: aprova cadastros, convida, troca papel, desativa, edita empreendimentos, unidades e etapas do funil, ve e edita todos os leads, exclui lead |
+| administrativo | edita empreendimentos e unidades; ve e edita todos os leads |
+| corretor | ve empreendimentos e unidades; ve e edita **so os leads em que e o responsavel**; todo lead que cadastra nasce com ele como responsavel |
 
 As travas valem **no banco** (RLS em `sql/001_base.sql`), nao so na tela.
 Ninguem se promove: um gatilho barra mudanca de papel ou situacao que nao
@@ -70,8 +72,9 @@ venha de um gestor.
 ### 1. Banco (Supabase, o mesmo projeto do Central DPR)
 
 Supabase > SQL Editor > New query > colar `sql/001_base.sql` inteiro > Run;
-depois o mesmo com `sql/002_registro.sql`. Pode rodar mais de uma vez. Todas
-as tabelas comecam com `crm_`; nada do portal do cliente e tocado.
+depois o mesmo com `sql/002_registro.sql` e `sql/003_leads.sql`, nessa ordem.
+Pode rodar mais de uma vez. Todas as tabelas comecam com `crm_`; nada do
+portal do cliente e tocado.
 
 O primeiro gestor e **quem criar a primeira conta** na tela "Criar conta" do
 CRM. Se precisar promover alguem a gestor por fora (socorro), no SQL Editor:
@@ -97,8 +100,25 @@ nunca marcadas como publicas:
 | `SUPABASE_URL` | `https://roashkfdjgsweuftqhyx.supabase.co` (o mesmo do Central) |
 | `SUPABASE_SERVICE_KEY` | a chave de **servico** do Supabase (`sb_secret_...`), em Settings > API keys |
 | `CRM_URL` | o endereco do CRM, para o link do convite voltar para ca (ex.: `https://crm-dpr.vercel.app`) |
+| `LEAD_SEGREDO` | uma senha longa inventada por voce; o site da DPR usa a mesma para mandar leads (abaixo) |
 
 Variavel nova so vale no proximo deploy: depois de salvar, Redeploy.
+
+### 4. O assistente do site da DPR mandando leads para ca
+
+No projeto do **site** (`site-dpr`, na Vercel), duas variaveis e Redeploy:
+
+| Nome | Valor |
+|---|---|
+| `LEAD_WEBHOOK_URL` | `https://<endereco do CRM>/api/entrada` |
+| `LEAD_WEBHOOK_SEGREDO` | a **mesma** senha de `LEAD_SEGREDO` aqui |
+
+Nao muda codigo no site: a funcao `api/lead.js` dele ja manda o lead para o
+webhook. Cada pessoa que deixa o WhatsApp no assistente entra no funil em
+"Novo", com origem "Chat do site" e as dez respostas na ficha. Se o numero ja
+estiver no CRM, nao duplica: atualiza as respostas e anota a nova passagem na
+linha do tempo. O aviso no WhatsApp (CallMeBot) continua funcionando em
+paralelo, se estiver configurado la.
 
 A chave publicavel (`sb_publishable_...`) esta no `index.html` de proposito:
 ela e feita para o navegador e, sem login, nao abre nada.
@@ -120,6 +140,15 @@ ela e feita para o navegador e, sem login, nao abre nada.
   = aguardando; cheio e inativo = desativado), funcao `crm_registrar(nome,
   papel)` chamada pela tela Criar conta, gatilho de protecao cobrindo a
   aprovacao.
+- `sql/003_leads.sql`: `crm_etapas` (as colunas do funil, com as oito do MCMV
+  ja dentro), `crm_leads` (WhatsApp unico e no formato brasileiro, etapa,
+  responsavel, respostas do assistente em JSON), `crm_lead_eventos` (a linha
+  do tempo). Gatilhos: a troca de etapa zera `etapa_desde` e grava o evento
+  com o motivo da perda; a troca de responsavel grava o evento. RLS: equipe
+  ve tudo; corretor ve e edita so os seus e nao consegue passar lead para
+  outra pessoa.
+- `api/entrada.js`: recebe o lead do site com o segredo `x-lead-segredo`,
+  confere o telefone, cria em "Novo" ou atualiza o existente.
 
 ## Conferencia antes de cada commit
 
@@ -129,8 +158,14 @@ ela e feita para o navegador e, sem login, nao abre nada.
   pela funcao, troca de papel, desativar), criar conta (o primeiro vira
   gestor; o segundo aguarda e e aprovado; recusa; e-mail repetido; projeto
   com confirmacao por e-mail).
+- Leads no DOM falso: funil com as colunas e os cartoes certos, ficha com as
+  respostas do site e a linha do tempo, anotar, mover (inclusive Perdido
+  exigindo motivo), WhatsApp repetido abrindo o existente, lista com busca e
+  filtros, renomear etapa; corretor recebendo so os proprios leads.
 - Funcao `api/convidar.js` com pedidos e Supabase falsos: metodo, token
   invalido, nao gestor, e-mail repetido, convite ok, e-mail que ja tinha login.
+- Funcao `api/entrada.js`: segredo, telefone, lead novo, lead existente sem
+  duplicar, funil sem etapa, sem variaveis.
 - Navegador (puppeteer) em 1440 e 390 com o Supabase de mentira servido no
   lugar do CDN: telas fotografadas, nada vazando, toque de 44px.
 

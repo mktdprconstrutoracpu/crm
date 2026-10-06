@@ -180,6 +180,64 @@
   .unidade[data-status="indisponivel"] { border-top-color: var(--cinza); opacity: 0.75; }
   .legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 
+  /* ---- o funil (kanban) ---- */
+  .alternar { display: inline-flex; border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; background: var(--cartao); }
+  .alternar button { min-height: 44px; padding: 0 16px; border: 0; background: transparent; font-weight: 600; color: var(--texto-fraco); cursor: pointer; }
+  .alternar button.ativo { background: var(--primario); color: #fff; }
+  .alternar button:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -2px; }
+  .kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .coluna { flex: 0 0 272px; display: flex; flex-direction: column; max-height: calc(100vh - 300px); min-height: 220px; background: #ececf0; border-radius: var(--raio); border-top: 5px solid var(--cor, var(--cinza)); scroll-snap-align: start; }
+  .coluna.recebendo { background: #e3e3ea; outline: 2px dashed var(--cor, var(--cinza)); outline-offset: -2px; }
+  .coluna-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; }
+  .coluna-cabeca b { font-family: var(--titulo); font-size: 14px; }
+  .coluna-cabeca span { font-size: 12px; font-weight: 700; color: var(--texto-fraco); background: #fff; border-radius: 999px; padding: 2px 9px; }
+  .coluna-corpo { flex: 1; overflow-y: auto; padding: 4px 10px 10px; display: grid; gap: 8px; align-content: start; }
+  .lead-cartao { display: grid; gap: 4px; padding: 12px 12px 10px; border-radius: 8px; border: 1px solid var(--linha); background: var(--cartao); text-align: left; cursor: grab; box-shadow: 0 1px 2px rgba(20, 20, 30, 0.06); transition: transform 0.15s, box-shadow 0.15s; }
+  .lead-cartao:hover { box-shadow: 0 6px 18px rgba(20, 20, 30, 0.12); transform: translateY(-1px); }
+  .lead-cartao:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 2px; }
+  .lead-cartao.arrastando { opacity: 0.5; }
+  .lead-cartao b { font-size: 14px; }
+  .lead-cartao .fone { font-size: 13px; color: var(--texto-fraco); font-variant-numeric: tabular-nums; }
+  .lead-cartao .meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--texto-fraco); }
+  .lead-cartao .meta .etiqueta { font-size: 11px; padding: 1px 8px; }
+  .lead-cartao .quem { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--primario); color: #fff; font-size: 10px; font-weight: 700; }
+  .lead-cartao .dias { margin-left: auto; }
+  .lead-cartao .dias.velho { color: var(--vermelho); font-weight: 700; }
+  .funil-resumo { padding: 16px 18px; display: grid; gap: 8px; }
+  .funil-resumo h2 { font-size: 16px; }
+  .funil-resumo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .funil-resumo li { display: grid; grid-template-columns: 140px 1fr 36px; align-items: center; gap: 10px; font-size: 13px; }
+  .funil-resumo li i { display: block; height: 10px; border-radius: 5px; background: var(--cor, var(--cinza)); min-width: 4px; }
+  .funil-resumo li span:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .etiqueta[data-origem] { background: #f1f1f4; color: var(--texto); }
+  .etiqueta[data-origem]::before { display: none; }
+
+  /* a ficha do lead */
+  .dlg-lead { width: min(980px, calc(100vw - 32px)); }
+  .lead-grade { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px; }
+  .lead-campos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+  .lead-linha { min-width: 0; background: var(--fundo); border-radius: var(--raio); padding: 14px 16px; display: grid; gap: 10px; align-content: start; max-height: 70vh; overflow-y: auto; }
+  .lead-linha h3 { font-size: 14px; }
+  .linha { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .linha li { position: relative; padding-left: 18px; font-size: 13px; }
+  .linha li::before { content: ''; position: absolute; left: 0; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--cinza); }
+  .linha li[data-tipo="etapa"]::before { background: var(--azul); }
+  .linha li[data-tipo="nota"]::before { background: var(--ambar); }
+  .linha li[data-tipo="criado"]::before, .linha li[data-tipo="entrada_site"]::before { background: var(--verde); }
+  .linha li small { display: block; color: var(--texto-fraco); font-size: 12px; }
+  .anotar { display: grid; gap: 8px; }
+  .anotar textarea { min-height: 60px; padding: 8px 10px; border: 1px solid var(--linha); border-radius: 8px; font-size: 14px; resize: vertical; }
+  .anotar .botao { justify-self: start; }
+  .respostas { display: grid; gap: 4px; padding: 12px 14px; border-radius: 8px; background: var(--fundo); font-size: 13px; }
+  .respostas b { font-size: 13px; }
+  .respostas li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--linha); }
+  .respostas li:last-child { border-bottom: 0; }
+  .respostas ol { margin: 4px 0 0; padding: 0 0 0 18px; }
+  .etapas-lista { display: grid; gap: 10px; }
+  .etapas-lista .linha-etapa { display: grid; grid-template-columns: 1fr 56px 110px; gap: 10px; align-items: center; }
+  .etapas-lista input[type="color"] { width: 56px; height: 44px; padding: 2px; border: 1px solid var(--linha); border-radius: 8px; background: #fff; cursor: pointer; }
+  .etapas-lista .tipo { font-size: 12px; color: var(--texto-fraco); text-align: right; }
+
   /* dialogos */
   dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; border: 0; border-radius: 14px; padding: 0; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35); color: var(--texto); }
   dialog::backdrop { background: rgba(20, 20, 30, 0.55); }
@@ -187,7 +245,9 @@
   dialog h2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   dialog h2 button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 20px; line-height: 1; color: var(--texto-fraco); }
   dialog h2 button:hover { background: rgba(0, 0, 0, 0.06); color: var(--texto); }
-  dialog .pe { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+  /* flex-wrap: no celular, quatro botoes nao cabem numa linha; sem quebrar,
+     eles alargavam a ficha e o dialogo ganhava rolagem lateral */
+  dialog .pe { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 6px; }
   dialog .pe .apagar { margin-right: auto; color: var(--vermelho); }
 
   /* aviso (toast) */
@@ -206,6 +266,13 @@
     /* no dedo, todo botao tem 44px, inclusive os pequenos das tabelas */
     .botao--pequeno, .topo-usuario .botao, .papel-sel { min-height: 44px; }
     .papel-sel { padding: 8px; border-radius: 8px; border: 1px solid var(--linha); }
+    /* a ficha do lead vira uma coluna; o funil mostra uma coluna por vez */
+    .lead-grade { grid-template-columns: minmax(0, 1fr); }
+    .lead-linha { max-height: none; }
+    .coluna { flex-basis: 84vw; max-height: none; }
+    .funil-resumo li { grid-template-columns: 110px 1fr 36px; }
+    .etapas-lista .linha-etapa { grid-template-columns: 1fr 56px; }
+    .etapas-lista .tipo { grid-column: 1 / -1; text-align: left; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
 </style>
@@ -304,6 +371,7 @@
       <a class="marca" href="#inicio"><i>DPR</i>CRM</a>
       <nav aria-label="Seções do CRM" id="menu">
         <a href="#inicio" data-rota="inicio">Início</a>
+        <a href="#leads" data-rota="leads">Leads</a>
         <a href="#empreendimentos" data-rota="empreendimentos">Empreendimentos</a>
         <a href="#unidades" data-rota="unidades">Unidades</a>
         <a href="#equipe" data-rota="equipe" data-so="equipe">Equipe</a>
@@ -323,6 +391,7 @@
       </div>
       <div class="resumo" id="resumo"></div>
       <div class="cartao alerta" id="inicioAviso" hidden></div>
+      <div class="cartao funil-resumo" id="inicioFunil"></div>
       <div class="cartao proximas">
         <h2>O que já funciona e o que vem</h2>
         <ol>
@@ -333,6 +402,36 @@
           <li>Ranking, painel do gestor e relatórios. Depois, Facebook Lead Ads e a ponte com o Central DPR.</li>
         </ol>
       </div>
+    </section>
+
+    <!-- Leads: o funil -->
+    <section class="painel" id="painelLeads" data-painel="leads" hidden>
+      <div class="cabeca">
+        <div><h1>Leads</h1><p>Cada pessoa interessada, da primeira conversa ao contrato. Arraste o cartão para mudar de etapa, ou abra e escolha.</p></div>
+        <div class="acoes">
+          <div class="alternar" role="group" aria-label="Como ver os leads">
+            <button type="button" class="ativo" data-visao="kanban" aria-pressed="true">Funil</button>
+            <button type="button" data-visao="lista" aria-pressed="false">Lista</button>
+          </div>
+          <button type="button" class="botao" id="editarEtapas" data-so="gestor">Etapas</button>
+          <button type="button" class="botao botao--cheio" id="novoLead">Novo lead</button>
+        </div>
+      </div>
+      <div class="filtros">
+        <div class="campo"><label for="leadsBusca">Buscar</label><input id="leadsBusca" type="search" placeholder="Nome ou WhatsApp"></div>
+        <div class="campo"><label for="leadsEmpreendimento">Empreendimento</label><select id="leadsEmpreendimento"></select></div>
+        <div class="campo"><label for="leadsOrigem">Origem</label><select id="leadsOrigem"><option value="">Todas</option></select></div>
+        <div class="campo" data-so="equipe"><label for="leadsResponsavel">Responsável</label><select id="leadsResponsavel"></select></div>
+        <div class="campo" id="campoLeadsEtapa" hidden><label for="leadsEtapa">Etapa</label><select id="leadsEtapa"></select></div>
+      </div>
+      <div class="kanban" id="kanban" aria-label="Funil de vendas"></div>
+      <div class="cartao tabela-caixa" id="leadsLista" hidden>
+        <table id="tabelaLeads">
+          <thead><tr><th>Nome</th><th>WhatsApp</th><th>Etapa</th><th>Empreendimento</th><th>Responsável</th><th>Origem</th><th>Atualizado</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="cartao vazio" id="leadsVazio" hidden><b>Nenhum lead aqui</b><span id="leadsVazioTexto">Cadastre o primeiro em "Novo lead".</span></div>
     </section>
 
     <!-- Empreendimentos -->
@@ -471,6 +570,67 @@
   </form>
 </dialog>
 
+<!-- a ficha do lead: cadastro novo ou edicao, com a linha do tempo -->
+<dialog id="dlgLead" class="dlg-lead" aria-labelledby="dlgLeadTitulo">
+  <form id="formLead" method="dialog" novalidate>
+    <h2><span id="dlgLeadTitulo">Novo lead</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
+    <input type="hidden" id="leadId">
+    <div class="lead-grade">
+      <div class="lead-campos">
+        <div class="campos-2">
+          <div class="campo"><label for="leadNome">Nome</label><input id="leadNome" required maxlength="120" autocomplete="off"></div>
+          <div class="campo"><label for="leadTelefone">WhatsApp</label><input id="leadTelefone" type="tel" inputmode="numeric" maxlength="16" placeholder="(11) 99999-9999" required autocomplete="off"></div>
+        </div>
+        <div class="campos-2">
+          <div class="campo"><label for="leadEmail">E-mail</label><input id="leadEmail" type="email" maxlength="160" autocomplete="off"></div>
+          <div class="campo"><label for="leadOrigem">Origem</label><select id="leadOrigem"></select></div>
+        </div>
+        <div class="campos-2">
+          <div class="campo"><label for="leadEmpreendimento">Empreendimento de interesse</label><select id="leadEmpreendimento"></select></div>
+          <div class="campo"><label for="leadUnidade">Unidade</label><select id="leadUnidade"></select></div>
+        </div>
+        <div class="campos-2">
+          <div class="campo"><label for="leadEtapa">Etapa</label><select id="leadEtapa"></select></div>
+          <div class="campo" id="campoLeadResponsavel"><label for="leadResponsavel">Responsável</label><select id="leadResponsavel"></select></div>
+        </div>
+        <div class="campo" id="campoMotivo" hidden><label for="leadMotivo">Motivo da perda</label><input id="leadMotivo" maxlength="200" placeholder="Ex.: não aprovou na Caixa, comprou em outro lugar"></div>
+        <div class="campo"><label for="leadObs">Observações</label><textarea id="leadObs" maxlength="4000"></textarea></div>
+        <div id="leadRespostas" class="respostas" hidden></div>
+        <p class="erro" id="leadErro" role="alert"></p>
+        <div class="pe">
+          <a class="botao botao--leve" id="leadWhats" href="#" target="_blank" rel="noopener" hidden>Chamar no WhatsApp</a>
+          <button type="button" class="botao botao--leve apagar" id="leadApagar" hidden>Excluir</button>
+          <button type="button" class="botao" data-fechar>Fechar</button>
+          <button type="submit" class="botao botao--cheio" id="leadSalvar">Salvar</button>
+        </div>
+      </div>
+      <aside class="lead-linha" id="leadLado" hidden>
+        <h3>Linha do tempo</h3>
+        <ol class="linha" id="leadLinha"></ol>
+        <div class="anotar">
+          <label class="sr" for="leadNota">Anotação</label>
+          <textarea id="leadNota" rows="2" maxlength="1000" placeholder="Anotar uma conversa, um retorno, um combinado"></textarea>
+          <button type="button" class="botao botao--pequeno" id="leadAnotar">Anotar</button>
+        </div>
+      </aside>
+    </div>
+  </form>
+</dialog>
+
+<!-- as etapas do funil: so o gestor renomeia e colore -->
+<dialog id="dlgEtapas" aria-labelledby="dlgEtapasTitulo">
+  <form id="formEtapas" method="dialog" novalidate>
+    <h2><span id="dlgEtapasTitulo">Etapas do funil</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
+    <p style="color: var(--texto-fraco); font-size: 14px;">Renomeie ou troque a cor. A ordem e o tipo (em andamento, ganho, perdido) ficam como estão.</p>
+    <div class="etapas-lista" id="etapasLista"></div>
+    <p class="erro" id="etapasErro" role="alert"></p>
+    <div class="pe">
+      <button type="button" class="botao" data-fechar>Cancelar</button>
+      <button type="submit" class="botao botao--cheio" id="etapasSalvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgConvite" aria-labelledby="dlgConviteTitulo">
   <form id="formConvite" method="dialog" novalidate>
     <h2><span id="dlgConviteTitulo">Convidar para o CRM</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
@@ -512,11 +672,13 @@
     status_unidade: { disponivel: 'Disponível', reservada: 'Reservada', vendida: 'Vendida', indisponivel: 'Indisponível' },
     status_emp: { lancamento: 'Lançamento', em_obras: 'Em obras', entregue: 'Entregue', encerrado: 'Encerrado' },
     tipo: { casas: 'Casas', lotes: 'Lotes', apartamentos: 'Apartamentos' },
-    papel: { gestor: 'Gestor', administrativo: 'Administrativo', corretor: 'Corretor' }
+    papel: { gestor: 'Gestor', administrativo: 'Administrativo', corretor: 'Corretor' },
+    origem: { site_chat: 'Chat do site', formulario: 'Formulário do site', instagram: 'Instagram', anuncio: 'Anúncio', indicacao: 'Indicação', plantao: 'Plantão', portal: 'Portal', outro: 'Outro' },
+    tipo_etapa: { aberta: 'em andamento', ganho: 'ganho', perdido: 'perdido' }
   };
   var PREFIXO_POR_TIPO = { casas: 'CASA', lotes: 'LOTE', apartamentos: 'APTO' };
 
-  var estado = { sessao: null, perfil: null, empreendimentos: [], unidades: [], perfis: [], rota: 'inicio', definirSenha: false, carregou: false };
+  var estado = { sessao: null, perfil: null, empreendimentos: [], unidades: [], perfis: [], etapas: [], leads: [], rota: 'inicio', definirSenha: false, carregou: false, visaoLeads: 'kanban' };
 
   /* ---- aviso no pe da tela ---- */
   var avisoEl = $('aviso'), avisoRelogio = null;
@@ -690,7 +852,7 @@
   $('semAcessoSair').addEventListener('click', sair);
 
   /* ---- navegacao por ancora ---- */
-  var ROTAS = ['inicio', 'empreendimentos', 'unidades', 'equipe'];
+  var ROTAS = ['inicio', 'leads', 'empreendimentos', 'unidades', 'equipe'];
   function rotaDaUrl() { var h = window.location.hash.replace('#', ''); return ROTAS.indexOf(h) >= 0 ? h : 'inicio'; }
   function ir(rota) {
     if (rota === 'equipe' && !podeEditar()) rota = 'inicio';
@@ -703,28 +865,53 @@
   window.addEventListener('hashchange', function () { if (estado.perfil && !$('app').hidden) ir(rotaDaUrl()); });
 
   /* ---- dados ---- */
+  var FONTES = {
+    empreendimentos: ['crm_empreendimentos', 'nome', true],
+    unidades: ['crm_unidades', 'codigo', true],
+    perfis: ['crm_perfis', 'nome', true],
+    etapas: ['crm_etapas', 'ordem', true],
+    leads: ['crm_leads', 'atualizado_em', false]
+  };
   function carregarTudo() {
-    return Promise.all([
-      sb.from('crm_empreendimentos').select('*').order('nome'),
-      sb.from('crm_unidades').select('*').order('codigo'),
-      sb.from('crm_perfis').select('*').order('nome')
-    ]).then(function (rs) {
+    var nomes = Object.keys(FONTES);
+    return Promise.all(nomes.map(function (n) { return sb.from(FONTES[n][0]).select('*').order(FONTES[n][1], { ascending: FONTES[n][2] }); })).then(function (rs) {
       var erro = rs.map(function (r) { return r.error; }).filter(Boolean)[0];
       if (erro) avisar(mensagemDeErro(erro), 'erro');
-      estado.empreendimentos = rs[0].data || [];
-      estado.unidades = rs[1].data || [];
-      estado.perfis = rs[2].data || [];
+      nomes.forEach(function (n, k) { estado[n] = rs[k].data || []; });
       estado.carregou = true;
     });
   }
   function recarregar(oque) {
-    var mapa = { empreendimentos: ['crm_empreendimentos', 'nome'], unidades: ['crm_unidades', 'codigo'], perfis: ['crm_perfis', 'nome'] };
-    return sb.from(mapa[oque][0]).select('*').order(mapa[oque][1]).then(function (r) {
+    return sb.from(FONTES[oque][0]).select('*').order(FONTES[oque][1], { ascending: FONTES[oque][2] }).then(function (r) {
       if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
       estado[oque] = r.data || [];
       desenhar(estado.rota);
     });
   }
+  function etapaPorId(id) { return estado.etapas.filter(function (e) { return e.id === id; })[0] || null; }
+  function perfilPorId(uid) { return estado.perfis.filter(function (p) { return p.user_id === uid; })[0] || null; }
+  function leadPorId(id) { return estado.leads.filter(function (l) { return l.id === id; })[0] || null; }
+  function primeiraEtapa() { var abertas = estado.etapas.filter(function (e) { return e.tipo === 'aberta' && e.ativo; }); return abertas[0] || estado.etapas[0] || null; }
+  function diasDesde(iso) { if (!iso) return 0; return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)); }
+  function iniciais(nome) { return String(nome || '?').trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0).toUpperCase(); }).join(''); }
+  function normalizarTelefone(v) {
+    var d = String(v || '').replace(/\D/g, '');
+    if (d.length === 12 || d.length === 13) { if (d.slice(0, 2) !== '55') return ''; d = d.slice(2); }
+    if (d.length !== 10 && d.length !== 11) return '';
+    if (d.charAt(0) === '0' || d.charAt(1) === '0') return '';
+    if (d.length === 11 && d.charAt(2) !== '9') return '';
+    return '55' + d;
+  }
+  function mascararTelefone(v) {
+    var d = String(v || '').replace(/\D/g, '');
+    if (d.length > 11 && d.slice(0, 2) === '55') d = d.slice(2);
+    d = d.slice(0, 11);
+    if (d.length <= 2) return d.length ? '(' + d : '';
+    if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+  }
+  var dataCurta = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
   function empPorId(id) { return estado.empreendimentos.filter(function (e) { return e.id === id; })[0] || null; }
   function contagem(empId) {
     var c = { disponivel: 0, reservada: 0, vendida: 0, indisponivel: 0, total: 0 };
@@ -735,6 +922,7 @@
   /* ---- desenhar cada painel ---- */
   function desenhar(rota) {
     if (rota === 'inicio') desenharInicio();
+    if (rota === 'leads') desenharLeads();
     if (rota === 'empreendimentos') desenharEmpreendimentos();
     if (rota === 'unidades') desenharUnidades();
     if (rota === 'equipe') desenharEquipe();
@@ -753,7 +941,284 @@
     var aviso = $('inicioAviso');
     aviso.hidden = !(eGestor() && aguardando > 0);
     if (!aviso.hidden) aviso.innerHTML = '<span><b>' + aguardando + (aguardando === 1 ? ' cadastro aguardando' : ' cadastros aguardando') + '</b> a sua aprovação para entrar no CRM.</span><a class="botao botao--pequeno" href="#equipe">Ver a equipe</a>';
+    // o funil em resumo: quantos leads em cada etapa, e os novos da semana
+    var semana = Date.now() - 7 * 86400000;
+    var novos = estado.leads.filter(function (l) { return new Date(l.criado_em).getTime() >= semana; }).length;
+    var abertos = estado.leads.filter(function (l) { var e = etapaPorId(l.etapa_id); return e && e.tipo === 'aberta'; }).length;
+    var maior = Math.max.apply(null, [1].concat(estado.etapas.map(function (e) { return estado.leads.filter(function (l) { return l.etapa_id === e.id; }).length; })));
+    $('inicioFunil').innerHTML = '<h2>Funil: ' + abertos + (abertos === 1 ? ' lead em andamento' : ' leads em andamento') + ', ' + novos + (novos === 1 ? ' novo' : ' novos') + ' nos últimos 7 dias</h2><ul>' +
+      estado.etapas.filter(function (e) { return e.ativo; }).map(function (e) {
+        var n = estado.leads.filter(function (l) { return l.etapa_id === e.id; }).length;
+        return '<li style="--cor: ' + esc(e.cor) + '"><span>' + esc(e.nome) + '</span><i style="width: ' + Math.round(n / maior * 100) + '%"></i><span>' + n + '</span></li>';
+      }).join('') + '</ul>' + (estado.leads.length === 0 ? '<p style="color: var(--texto-fraco); font-size: 13px;">Nenhum lead ainda. Cadastre em Leads, ou ligue o assistente do site (ver README).</p>' : '');
   }
+
+  /* ---- leads: o funil (kanban) e a lista ---- */
+  var filtroLeads = { busca: '', empreendimento: '', origem: '', responsavel: '', etapa: '' };
+  function leadsFiltrados() {
+    var b = filtroLeads.busca.trim().toLowerCase(), bd = b.replace(/\D/g, '');
+    return estado.leads.filter(function (l) {
+      if (b && !(String(l.nome).toLowerCase().indexOf(b) >= 0 || (bd && String(l.telefone).indexOf(bd) >= 0))) return false;
+      if (filtroLeads.empreendimento && String(l.empreendimento_id) !== filtroLeads.empreendimento) return false;
+      if (filtroLeads.origem && l.origem !== filtroLeads.origem) return false;
+      if (filtroLeads.responsavel && String(l.responsavel || '') !== filtroLeads.responsavel) return false;
+      if (filtroLeads.etapa && String(l.etapa_id) !== filtroLeads.etapa) return false;
+      return true;
+    });
+  }
+  function opcoesFixas(select, mapa, rotuloTodos, valor) {
+    select.innerHTML = (rotuloTodos !== null ? '<option value="">' + esc(rotuloTodos) + '</option>' : '') + Object.keys(mapa).map(function (k) { return '<option value="' + k + '">' + esc(mapa[k]) + '</option>'; }).join('');
+    if (valor !== undefined && valor !== null) select.value = String(valor);
+  }
+  function opcoesResponsaveis(select, valor, comTodos) {
+    var gente = estado.perfis.filter(function (p) { return p.ativo; });
+    select.innerHTML = (comTodos ? '<option value="">Todos</option>' : '<option value="">Sem responsável</option>') + gente.map(function (p) { return '<option value="' + esc(p.user_id) + '">' + esc(p.nome) + '</option>'; }).join('');
+    if (valor) select.value = String(valor);
+  }
+  function opcoesEtapas(select, valor, comTodas) {
+    select.innerHTML = (comTodas ? '<option value="">Todas</option>' : '') + estado.etapas.filter(function (e) { return e.ativo; }).map(function (e) { return '<option value="' + e.id + '">' + esc(e.nome) + '</option>'; }).join('');
+    if (valor) select.value = String(valor);
+  }
+  function cartaoLead(l) {
+    var emp = empPorId(l.empreendimento_id), resp = perfilPorId(l.responsavel), dias = diasDesde(l.etapa_desde);
+    return '<button type="button" class="lead-cartao" draggable="true" data-lead="' + l.id + '" aria-label="' + esc(l.nome + ', ' + telefoneBonito(l.telefone)) + '">' +
+      '<b>' + esc(l.nome) + '</b>' +
+      '<span class="fone">' + esc(telefoneBonito(l.telefone)) + '</span>' +
+      (emp ? '<span class="fone">' + esc(emp.nome) + '</span>' : '') +
+      '<span class="meta">' +
+        '<span class="etiqueta" data-origem="' + esc(l.origem) + '">' + esc(NOMES.origem[l.origem] || l.origem) + '</span>' +
+        (resp ? '<span class="quem" title="' + esc(resp.nome) + '">' + esc(iniciais(resp.nome)) + '</span>' : '') +
+        '<span class="dias' + (dias >= 7 ? ' velho' : '') + '">' + (dias === 0 ? 'hoje' : dias === 1 ? 'há 1 dia' : 'há ' + dias + ' dias') + '</span>' +
+      '</span>' +
+    '</button>';
+  }
+  function desenharLeads() {
+    // filtros
+    opcoesEmpreendimentos($('leadsEmpreendimento'), filtroLeads.empreendimento, true);
+    if (!filtroLeads.empreendimento) $('leadsEmpreendimento').value = '';
+    if ($('leadsOrigem').options.length <= 1) opcoesFixas($('leadsOrigem'), NOMES.origem, 'Todas', filtroLeads.origem);
+    opcoesResponsaveis($('leadsResponsavel'), filtroLeads.responsavel, true);
+    opcoesEtapas($('leadsEtapa'), filtroLeads.etapa, true);
+    $('campoLeadsEtapa').hidden = estado.visaoLeads !== 'lista';
+    Array.prototype.forEach.call(document.querySelectorAll('.alternar [data-visao]'), function (b) { var ativo = b.getAttribute('data-visao') === estado.visaoLeads; b.classList.toggle('ativo', ativo); b.setAttribute('aria-pressed', ativo ? 'true' : 'false'); });
+    var lista = leadsFiltrados();
+    var vazio = $('leadsVazio');
+    vazio.hidden = !(estado.leads.length === 0 || (lista.length === 0 && estado.visaoLeads === 'lista'));
+    $('leadsVazioTexto').textContent = estado.leads.length === 0 ? (podeEditar() ? 'Cadastre o primeiro em "Novo lead", ou ligue o assistente do site.' : 'Cadastre o primeiro em "Novo lead".') : 'Nenhum lead com esses filtros.';
+    $('kanban').hidden = estado.visaoLeads !== 'kanban' || estado.leads.length === 0;
+    $('leadsLista').hidden = estado.visaoLeads !== 'lista' || lista.length === 0;
+    if (estado.visaoLeads === 'kanban') {
+      $('kanban').innerHTML = estado.etapas.filter(function (e) { return e.ativo; }).map(function (e) {
+        var daColuna = lista.filter(function (l) { return l.etapa_id === e.id; });
+        return '<section class="coluna" data-etapa="' + e.id + '" style="--cor: ' + esc(e.cor) + '" aria-label="' + esc(e.nome) + '">' +
+          '<header class="coluna-cabeca"><b>' + esc(e.nome) + '</b><span>' + daColuna.length + '</span></header>' +
+          '<div class="coluna-corpo">' + daColuna.map(cartaoLead).join('') + '</div>' +
+        '</section>';
+      }).join('');
+    } else {
+      $('tabelaLeads').querySelector('tbody').innerHTML = lista.map(function (l) {
+        var e = etapaPorId(l.etapa_id), emp = empPorId(l.empreendimento_id), resp = perfilPorId(l.responsavel);
+        return '<tr data-lead="' + l.id + '" tabindex="0">' +
+          '<td><b>' + esc(l.nome) + '</b></td>' +
+          '<td class="inteiro">' + esc(telefoneBonito(l.telefone)) + '</td>' +
+          '<td>' + (e ? '<span class="etiqueta" style="background: ' + esc(e.cor) + '22; color: ' + esc(e.cor) + '">' + esc(e.nome) + '</span>' : '') + '</td>' +
+          '<td>' + esc(emp ? emp.nome : '') + '</td>' +
+          '<td>' + esc(resp ? resp.nome : '') + '</td>' +
+          '<td><span class="etiqueta" data-origem="' + esc(l.origem) + '">' + esc(NOMES.origem[l.origem] || l.origem) + '</span></td>' +
+          '<td class="inteiro">' + esc(dataCurta.format(new Date(l.atualizado_em))) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+  }
+  $('leadsBusca').addEventListener('input', function () { filtroLeads.busca = this.value; desenharLeads(); });
+  $('leadsEmpreendimento').addEventListener('change', function () { filtroLeads.empreendimento = this.value; desenharLeads(); });
+  $('leadsOrigem').addEventListener('change', function () { filtroLeads.origem = this.value; desenharLeads(); });
+  $('leadsResponsavel').addEventListener('change', function () { filtroLeads.responsavel = this.value; desenharLeads(); });
+  $('leadsEtapa').addEventListener('change', function () { filtroLeads.etapa = this.value; desenharLeads(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.alternar [data-visao]'), function (b) { b.addEventListener('click', function () { estado.visaoLeads = b.getAttribute('data-visao'); desenharLeads(); }); });
+  $('kanban').addEventListener('click', function (ev) { var b = ev.target.closest('.lead-cartao'); if (b) abrirLead(parseInt(b.getAttribute('data-lead'), 10)); });
+  $('tabelaLeads').addEventListener('click', function (ev) { var tr = ev.target.closest('tr[data-lead]'); if (tr) abrirLead(parseInt(tr.getAttribute('data-lead'), 10)); });
+  $('tabelaLeads').addEventListener('keydown', function (ev) { var tr = ev.target.closest('tr[data-lead]'); if (tr && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); abrirLead(parseInt(tr.getAttribute('data-lead'), 10)); } });
+
+  // arrastar e soltar entre colunas (computador); no celular, a ficha tem o select de etapa
+  var arrastando = null;
+  $('kanban').addEventListener('dragstart', function (ev) { var b = ev.target.closest('.lead-cartao'); if (!b) return; arrastando = parseInt(b.getAttribute('data-lead'), 10); b.classList.add('arrastando'); if (ev.dataTransfer) { ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', String(arrastando)); } catch (e) {} } });
+  $('kanban').addEventListener('dragend', function (ev) { var b = ev.target.closest('.lead-cartao'); if (b) b.classList.remove('arrastando'); Array.prototype.forEach.call(document.querySelectorAll('.coluna.recebendo'), function (c) { c.classList.remove('recebendo'); }); });
+  $('kanban').addEventListener('dragover', function (ev) { var c = ev.target.closest('.coluna'); if (!c || arrastando === null) return; ev.preventDefault(); if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'; Array.prototype.forEach.call(document.querySelectorAll('.coluna.recebendo'), function (x) { if (x !== c) x.classList.remove('recebendo'); }); c.classList.add('recebendo'); });
+  $('kanban').addEventListener('dragleave', function (ev) { var c = ev.target.closest('.coluna'); if (c && !c.contains(ev.relatedTarget)) c.classList.remove('recebendo'); });
+  $('kanban').addEventListener('drop', function (ev) {
+    var c = ev.target.closest('.coluna'); if (!c) return;
+    ev.preventDefault();
+    var id = arrastando !== null ? arrastando : parseInt((ev.dataTransfer && ev.dataTransfer.getData('text/plain')) || '0', 10);
+    arrastando = null;
+    c.classList.remove('recebendo');
+    moverLead(id, parseInt(c.getAttribute('data-etapa'), 10));
+  });
+  function moverLead(id, etapaId) {
+    var l = leadPorId(id), e = etapaPorId(etapaId);
+    if (!l || !e || l.etapa_id === etapaId) return;
+    if (e.tipo === 'perdido') { abrirLead(id, etapaId); return; }   // perdido pede o motivo na ficha
+    sb.from('crm_leads').update({ etapa_id: etapaId, motivo_perda: null }).eq('id', id).then(function (r) {
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
+      avisar(l.nome + ' foi para ' + e.nome + '.', 'ok');
+      recarregar('leads');
+    });
+  }
+
+  /* ---- a ficha do lead ---- */
+  var leadAberto = null;
+  function abrirLead(id, etapaForcada) {
+    var l = id ? leadPorId(id) : null;
+    leadAberto = l;
+    var edita = !l || podeEditar() || l.responsavel === estado.perfil.user_id;
+    $('dlgLeadTitulo').textContent = l ? (edita ? l.nome : 'Lead') : 'Novo lead';
+    $('leadId').value = l ? l.id : '';
+    $('leadNome').value = l ? l.nome : '';
+    $('leadTelefone').value = l ? mascararTelefone(l.telefone) : '';
+    $('leadEmail').value = l ? (l.email || '') : '';
+    opcoesFixas($('leadOrigem'), NOMES.origem, null, l ? l.origem : (podeEditar() ? 'outro' : 'plantao'));
+    opcoesEmpreendimentos($('leadEmpreendimento'), l ? l.empreendimento_id : '', true);
+    if (!l) $('leadEmpreendimento').value = filtroLeads.empreendimento || '';
+    opcoesUnidadesDoLead(l ? l.unidade_id : null);
+    opcoesEtapas($('leadEtapa'), etapaForcada || (l ? l.etapa_id : (primeiraEtapa() || {}).id), false);
+    $('campoLeadResponsavel').hidden = !podeEditar();
+    opcoesResponsaveis($('leadResponsavel'), l ? l.responsavel : estado.perfil.user_id, false);
+    $('leadMotivo').value = l ? (l.motivo_perda || '') : '';
+    $('leadObs').value = l ? (l.observacoes || '') : '';
+    $('leadErro').textContent = '';
+    mostrarMotivo();
+    ['leadNome', 'leadTelefone', 'leadEmail', 'leadOrigem', 'leadEmpreendimento', 'leadUnidade', 'leadEtapa', 'leadResponsavel', 'leadMotivo', 'leadObs'].forEach(function (c) { $(c).disabled = !edita; });
+    $('leadSalvar').hidden = !edita;
+    $('leadApagar').hidden = !(l && eGestor());
+    $('leadWhats').hidden = !l;
+    if (l) $('leadWhats').href = 'https://wa.me/' + l.telefone + '?text=' + encodeURIComponent('Olá, ' + l.nome.split(' ')[0] + '! Aqui é ' + estado.perfil.nome.split(' ')[0] + ', da DPR Construtora. Vi o seu interesse' + (empPorId(l.empreendimento_id) ? ' no ' + empPorId(l.empreendimento_id).nome : '') + ' e queria te ajudar com o financiamento. Podemos conversar?');
+    // respostas do assistente
+    var caixa = $('leadRespostas');
+    var rs = l && Array.isArray(l.respostas_assistente) ? l.respostas_assistente : [];
+    caixa.hidden = rs.length === 0;
+    if (rs.length) caixa.innerHTML = '<b>O que a pessoa respondeu no assistente do site</b><ol>' + rs.map(function (r) { return '<li><span>' + esc(r.resumo) + '</span><b>' + esc(r.valor) + '</b></li>'; }).join('') + '</ol>';
+    // linha do tempo
+    $('leadLado').hidden = !l;
+    $('leadLinha').innerHTML = '';
+    $('leadNota').value = '';
+    if (l) carregarLinha(l.id);
+    abrir($('dlgLead'));
+    if (edita) (l ? $('leadEtapa') : $('leadNome')).focus();
+    if (etapaForcada) $('leadMotivo').focus();
+  }
+  function opcoesUnidadesDoLead(valor) {
+    var empId = parseInt($('leadEmpreendimento').value, 10);
+    var lista = estado.unidades.filter(function (u) { return u.empreendimento_id === empId && (u.status === 'disponivel' || u.status === 'reservada' || u.id === valor); });
+    $('leadUnidade').innerHTML = '<option value="">Sem unidade definida</option>' + lista.map(function (u) { return '<option value="' + u.id + '">' + esc(u.codigo + (u.quadra ? ' · ' + u.quadra : '') + ' · ' + (NOMES.status_unidade[u.status] || u.status)) + '</option>'; }).join('');
+    $('leadUnidade').value = valor ? String(valor) : '';
+    $('leadUnidade').disabled = $('leadNome').disabled || !empId;
+  }
+  function mostrarMotivo() { var e = etapaPorId(parseInt($('leadEtapa').value, 10)); $('campoMotivo').hidden = !(e && e.tipo === 'perdido'); }
+  $('leadEmpreendimento').addEventListener('change', function () { opcoesUnidadesDoLead(null); });
+  $('leadEtapa').addEventListener('change', mostrarMotivo);
+  $('leadTelefone').addEventListener('input', function () { this.value = mascararTelefone(this.value); $('leadErro').textContent = ''; });
+  function carregarLinha(leadId) {
+    return sb.from('crm_lead_eventos').select('*').eq('lead_id', leadId).order('criado_em', { ascending: false }).then(function (r) {
+      if (r.error) { $('leadLinha').innerHTML = '<li>' + esc(mensagemDeErro(r.error)) + '</li>'; return; }
+      var evs = r.data || [];
+      $('leadLinha').innerHTML = evs.length ? evs.map(function (ev) {
+        var autor = perfilPorId(ev.autor);
+        var texto = ev.tipo === 'criado' ? (ev.texto || 'Cadastrado') + (ev.para ? ' em ' + ev.para : '')
+          : ev.tipo === 'etapa' ? 'De ' + (ev.de || '?') + ' para ' + (ev.para || '?') + (ev.texto ? ': ' + ev.texto : '')
+          : ev.tipo === 'responsavel' ? 'Responsável: ' + (ev.de ? ev.de + ' para ' : '') + (ev.para || 'ninguém')
+          : (ev.texto || '');
+        return '<li data-tipo="' + esc(ev.tipo) + '">' + esc(texto) + '<small>' + esc(dataCurta.format(new Date(ev.criado_em))) + (autor ? ' · ' + autor.nome.split(' ')[0] : (ev.tipo === 'criado' || ev.tipo === 'entrada_site') ? ' · site' : '') + '</small></li>';
+      }).join('') : '<li data-tipo="nota">Nada registrado ainda.</li>';
+    });
+  }
+  $('novoLead').addEventListener('click', function () { abrirLead(null); });
+  $('formLead').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var erro = $('leadErro'); erro.textContent = '';
+    var tel = normalizarTelefone($('leadTelefone').value);
+    var etapa = etapaPorId(parseInt($('leadEtapa').value, 10));
+    var dados = {
+      nome: $('leadNome').value.trim(), telefone: tel, email: $('leadEmail').value.trim().toLowerCase() || null, origem: $('leadOrigem').value,
+      empreendimento_id: $('leadEmpreendimento').value ? parseInt($('leadEmpreendimento').value, 10) : null,
+      unidade_id: $('leadUnidade').value ? parseInt($('leadUnidade').value, 10) : null,
+      etapa_id: etapa ? etapa.id : null,
+      responsavel: podeEditar() ? ($('leadResponsavel').value || null) : estado.perfil.user_id,
+      motivo_perda: etapa && etapa.tipo === 'perdido' ? $('leadMotivo').value.trim() || null : null,
+      observacoes: $('leadObs').value.trim() || null
+    };
+    if (dados.nome.length < 2) { erro.textContent = 'Digite o nome da pessoa.'; return; }
+    if (!tel) { erro.textContent = 'Digite um WhatsApp válido, com DDD.'; return; }
+    if (!dados.etapa_id) { erro.textContent = 'Escolha a etapa.'; return; }
+    if (etapa.tipo === 'perdido' && !dados.motivo_perda) { erro.textContent = 'Diga o motivo da perda, para o funil aprender com ele.'; $('leadMotivo').focus(); return; }
+    var id = $('leadId').value ? parseInt($('leadId').value, 10) : null;
+    // o WhatsApp e a chave: se ja existe outro lead com esse numero, abre ele em vez de duplicar
+    var repetido = estado.leads.filter(function (l) { return l.telefone === tel && l.id !== id; })[0];
+    if (repetido) { erro.textContent = 'Esse WhatsApp já é de ' + repetido.nome + '. Abrindo o cadastro dela.'; window.setTimeout(function () { abrirLead(repetido.id); }, 900); return; }
+    var botao = $('leadSalvar'); botao.disabled = true;
+    var q = id ? sb.from('crm_leads').update(dados).eq('id', id).select().single() : sb.from('crm_leads').insert(dados).select().single();
+    q.then(function (r) {
+      botao.disabled = false;
+      if (r.error) { erro.textContent = mensagemDeErro(r.error); return; }
+      $('dlgLead').close();
+      avisar(id ? 'Lead atualizado.' : 'Lead cadastrado em ' + etapa.nome + '.', 'ok');
+      recarregar('leads');
+    });
+  });
+  $('leadAnotar').addEventListener('click', function () {
+    var texto = $('leadNota').value.trim();
+    if (!leadAberto || !texto) return;
+    var botao = $('leadAnotar'); botao.disabled = true;
+    sb.from('crm_lead_eventos').insert({ lead_id: leadAberto.id, tipo: 'nota', texto: texto }).then(function (r) {
+      botao.disabled = false;
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
+      $('leadNota').value = '';
+      carregarLinha(leadAberto.id);
+    });
+  });
+  $('leadApagar').addEventListener('click', function () {
+    var id = parseInt($('leadId').value, 10), l = leadPorId(id);
+    if (!l || !window.confirm('Excluir o lead ' + l.nome + '? A linha do tempo vai junto. Se a pessoa desistiu, prefira mover para Perdido.')) return;
+    sb.from('crm_leads').delete().eq('id', id).then(function (r) {
+      if (r.error) { $('leadErro').textContent = mensagemDeErro(r.error); return; }
+      $('dlgLead').close();
+      avisar('Lead excluído.', 'ok');
+      recarregar('leads');
+    });
+  });
+
+  /* ---- etapas: renomear e colorir (gestor) ---- */
+  $('editarEtapas').addEventListener('click', function () {
+    $('etapasLista').innerHTML = estado.etapas.map(function (e) {
+      return '<div class="linha-etapa" data-etapa="' + e.id + '">' +
+        '<div class="campo"><label class="sr" for="etapaNome' + e.id + '">Nome</label><input id="etapaNome' + e.id + '" value="' + esc(e.nome) + '" maxlength="40" required></div>' +
+        '<input type="color" value="' + esc(e.cor) + '" aria-label="Cor de ' + esc(e.nome) + '">' +
+        '<span class="tipo">' + esc(NOMES.tipo_etapa[e.tipo] || e.tipo) + '</span>' +
+      '</div>';
+    }).join('');
+    $('etapasErro').textContent = '';
+    abrir($('dlgEtapas'));
+  });
+  $('formEtapas').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var linhas = Array.prototype.slice.call(document.querySelectorAll('#etapasLista .linha-etapa'));
+    var mudancas = [];
+    for (var i = 0; i < linhas.length; i++) {
+      var id = parseInt(linhas[i].getAttribute('data-etapa'), 10), e = etapaPorId(id);
+      var nome = linhas[i].querySelector('input[type="text"], input:not([type])').value.trim(), cor = linhas[i].querySelector('input[type="color"]').value;
+      if (nome.length < 2) { $('etapasErro').textContent = 'Toda etapa precisa de um nome.'; return; }
+      if (e && (e.nome !== nome || e.cor !== cor)) mudancas.push({ id: id, nome: nome, cor: cor });
+    }
+    if (!mudancas.length) { $('dlgEtapas').close(); return; }
+    var botao = $('etapasSalvar'); botao.disabled = true;
+    Promise.all(mudancas.map(function (m) { return sb.from('crm_etapas').update({ nome: m.nome, cor: m.cor }).eq('id', m.id); })).then(function (rs) {
+      botao.disabled = false;
+      var erro = rs.map(function (r) { return r.error; }).filter(Boolean)[0];
+      if (erro) { $('etapasErro').textContent = mensagemDeErro(erro); return; }
+      $('dlgEtapas').close();
+      avisar(mudancas.length === 1 ? 'Etapa atualizada.' : mudancas.length + ' etapas atualizadas.', 'ok');
+      recarregar('etapas');
+    });
+  });
   function aguardandoAprovacao() { return estado.perfis.filter(function (p) { return !p.ativo && !p.aprovado_em; }); }
   function cartaoResumo(n, rotulo, cor) { return '<div class="cartao" data-cor="' + cor + '"><span class="num">' + n + '</span><span class="rot">' + esc(rotulo) + '</span></div>'; }
 
@@ -1110,7 +1575,7 @@
   });
 
   /* para os testes */
-  window.CRM = { estado: estado, ir: ir, podeEditar: podeEditar, eGestor: eGestor, telefoneBonito: telefoneBonito };
+  window.CRM = { estado: estado, ir: ir, podeEditar: podeEditar, eGestor: eGestor, telefoneBonito: telefoneBonito, normalizarTelefone: normalizarTelefone, abrirLead: abrirLead, moverLead: moverLead };
 })();
 </script>
 </body>
