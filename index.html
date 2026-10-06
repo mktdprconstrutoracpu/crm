@@ -154,7 +154,9 @@
   .etiqueta { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #eee; color: var(--texto); }
   .etiqueta::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
   .etiqueta[data-status="disponivel"], .etiqueta[data-status="lancamento"], .etiqueta[data-status="ativo"] { background: #e8f5e9; color: var(--verde); }
-  .etiqueta[data-status="reservada"], .etiqueta[data-status="em_obras"], .etiqueta[data-status="pendente"] { background: #fff3e0; color: var(--ambar); }
+  .etiqueta[data-status="reservada"], .etiqueta[data-status="em_obras"], .etiqueta[data-status="pendente"], .etiqueta[data-status="aguardando"] { background: #fff3e0; color: var(--ambar); }
+  .alerta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 18px; border-left: 5px solid var(--ambar); font-size: 14px; }
+  .alerta b { color: var(--ambar); }
   .etiqueta[data-status="vendida"], .etiqueta[data-status="entregue"] { background: #e3f2fd; color: var(--azul); }
   .etiqueta[data-status="indisponivel"], .etiqueta[data-status="encerrado"], .etiqueta[data-status="inativo"] { background: #eceff1; color: var(--cinza); }
   .etiqueta[data-status="gestor"] { background: #fdecea; color: var(--vermelho); }
@@ -227,7 +229,40 @@
       <button type="submit" class="botao botao--cheio" id="entrarBotao">Entrar</button>
       <div class="pe">
         <button type="button" id="entrarEsqueci">Esqueci a senha</button>
+        <button type="button" id="entrarRegistrar">Criar conta</button>
         <button type="button" id="entrarVoltar" hidden>Voltar para entrar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ===================================================== criar conta ======= -->
+<!-- Pedido dela (06/10/2026): registrar com e-mail, senha e nivel, gravando no
+     Supabase. O primeiro cadastro vira gestor na hora; os seguintes ficam
+     aguardando um gestor aprovar (ver sql/002_registro.sql). -->
+<section class="entrada" id="telaRegistrar" hidden>
+  <div class="entrada-caixa">
+    <span class="marca"><i>DPR</i>CRM</span>
+    <div>
+      <h1>Criar conta</h1>
+      <p>Para a equipe da DPR. O primeiro cadastro vira gestor; os seguintes entram depois que um gestor liberar o acesso.</p>
+    </div>
+    <form id="formRegistrar" novalidate>
+      <div class="campo"><label for="regNome">Nome</label><input id="regNome" autocomplete="name" maxlength="120" required></div>
+      <div class="campo"><label for="regEmail">E-mail</label><input id="regEmail" type="email" autocomplete="email" required></div>
+      <div class="campo"><label for="regSenha">Senha</label><input id="regSenha" type="password" autocomplete="new-password" minlength="8" required><span class="dica">Pelo menos 8 caracteres.</span></div>
+      <div class="campo"><label for="regPapel">Nível</label>
+        <select id="regPapel">
+          <option value="corretor">Corretor: vê empreendimentos e unidades</option>
+          <option value="administrativo">Administrativo: edita empreendimentos e unidades</option>
+          <option value="gestor">Gestor: tudo, inclusive aprovar e convidar</option>
+        </select>
+      </div>
+      <p class="erro" id="regErro" role="alert"></p>
+      <button type="submit" class="botao botao--cheio" id="regBotao">Criar conta</button>
+      <div class="pe">
+        <span></span>
+        <button type="button" id="regVoltar">Já tenho conta</button>
       </div>
     </form>
   </div>
@@ -255,7 +290,7 @@
   <div class="entrada-caixa">
     <span class="marca"><i>DPR</i>CRM</span>
     <div>
-      <h1>Sua conta não tem acesso ao CRM</h1>
+      <h1 id="semAcessoTitulo">Sua conta não tem acesso ao CRM</h1>
       <p id="semAcessoTexto">Este login existe, mas não está na equipe do CRM. Peça a um gestor da DPR para convidar o seu e-mail.</p>
     </div>
     <button type="button" class="botao" id="semAcessoSair">Sair</button>
@@ -287,6 +322,7 @@
         <div><h1>Início</h1><p id="inicioSaudacao"></p></div>
       </div>
       <div class="resumo" id="resumo"></div>
+      <div class="cartao alerta" id="inicioAviso" hidden></div>
       <div class="cartao proximas">
         <h2>O que já funciona e o que vem</h2>
         <ol>
@@ -346,6 +382,7 @@
         <div><h1>Equipe</h1><p>Quem entra no CRM e com que papel. Quem sai fica inativo, nunca é apagado.</p></div>
         <div class="acoes"><button type="button" class="botao botao--cheio" id="convidar" data-so="gestor">Convidar</button></div>
       </div>
+      <div class="cartao alerta" id="equipeAviso" hidden></div>
       <div class="cartao tabela-caixa">
         <table id="tabelaEquipe">
           <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
@@ -500,7 +537,7 @@
   }
 
   /* ---- telas ---- */
-  var TELAS = ['telaCarregando', 'telaEntrar', 'telaSenha', 'telaSemAcesso', 'app'];
+  var TELAS = ['telaCarregando', 'telaEntrar', 'telaRegistrar', 'telaSenha', 'telaSemAcesso', 'app'];
   function mostrarTela(id) { TELAS.forEach(function (t) { $(t).hidden = t !== id; }); }
 
   /* ---- a sessao ---- */
@@ -510,15 +547,29 @@
     if (estado.definirSenha) { mostrarTela('telaSenha'); return; }
     carregarPerfil();
   }
-  function carregarPerfil() {
+  function semAcesso(titulo, texto) {
+    $('semAcessoTitulo').textContent = titulo;
+    $('semAcessoTexto').textContent = texto;
+    mostrarTela('telaSemAcesso');
+  }
+  /* Quem acabou de se cadastrar pela tela "Criar conta" ainda nao tem perfil:
+     o signUp guardou nome e nivel nos dados do login (origem: crm), e a funcao
+     crm_registrar cria o perfil (o primeiro vira gestor; os outros ficam
+     aguardando). Um cliente do portal, sem essa marca, nao ganha perfil. */
+  function carregarPerfil(jaRegistrou) {
     return sb.from('crm_perfis').select('*').eq('user_id', estado.sessao.user.id).maybeSingle().then(function (r) {
-      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); mostrarTela('telaSemAcesso'); return; }
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); semAcesso('Não consegui ler o seu acesso', 'Tente de novo em instantes. Se continuar, fale com um gestor da DPR.'); return; }
       var p = r.data;
-      if (!p || !p.ativo) {
-        $('semAcessoTexto').textContent = p && !p.ativo ? 'Esta conta foi desativada no CRM. Fale com um gestor da DPR.' : 'Este login existe, mas não está na equipe do CRM. Peça a um gestor da DPR para convidar o seu e-mail.';
-        mostrarTela('telaSemAcesso');
-        return;
+      var meta = (estado.sessao.user && estado.sessao.user.user_metadata) || {};
+      if (!p && meta.origem === 'crm' && !jaRegistrou) {
+        return sb.rpc('crm_registrar', { p_nome: meta.nome || '', p_papel: meta.papel_solicitado || 'corretor' }).then(function (rr) {
+          if (rr.error) { avisar(mensagemDeErro(rr.error), 'erro'); }
+          return carregarPerfil(true);
+        });
       }
+      if (!p) { semAcesso('Sua conta não tem acesso ao CRM', 'Este login existe, mas não está na equipe do CRM. Peça a um gestor da DPR para convidar o seu e-mail, ou crie uma conta do CRM.'); return; }
+      if (!p.ativo && !p.aprovado_em) { semAcesso('Cadastro recebido', 'Seu cadastro como ' + (NOMES.papel[p.papel] || p.papel).toLowerCase() + ' está aguardando a liberação de um gestor da DPR. Quando liberar, é só entrar de novo.'); return; }
+      if (!p.ativo) { semAcesso('Sua conta foi desativada', 'Esta conta foi desativada no CRM. Fale com um gestor da DPR.'); return; }
       estado.perfil = p;
       if (!p.senha_definida) { mostrarTela('telaSenha'); return; }
       entrarNoApp();
@@ -564,6 +615,31 @@
     $('entrarEsqueci').hidden = false;
     $('entrarVoltar').hidden = true;
     $('entrarErro').textContent = '';
+  });
+  /* criar conta: signUp do Supabase com nome e nivel nos dados do login; o
+     perfil nasce em carregarPerfil (crm_registrar) assim que a sessao abre */
+  $('entrarRegistrar').addEventListener('click', function () { $('regErro').textContent = ''; mostrarTela('telaRegistrar'); $('regNome').focus(); });
+  $('regVoltar').addEventListener('click', function () { mostrarTela('telaEntrar'); });
+  $('formRegistrar').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var nome = $('regNome').value.trim(), email = $('regEmail').value.trim().toLowerCase(), senha = $('regSenha').value, papel = $('regPapel').value;
+    var erro = $('regErro'); erro.textContent = '';
+    if (nome.length < 2) { erro.textContent = 'Digite o seu nome.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { erro.textContent = 'Digite um e-mail válido.'; return; }
+    if (senha.length < 8) { erro.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    var botao = $('regBotao'); botao.disabled = true;
+    sb.auth.signUp({ email: email, password: senha, options: { data: { nome: nome, papel_solicitado: papel, origem: 'crm' }, emailRedirectTo: window.location.origin + window.location.pathname } }).then(function (r) {
+      botao.disabled = false;
+      if (r.error) { erro.textContent = /already|registered|exists/i.test(r.error.message) ? 'Esse e-mail já tem conta. Entre com a senha, ou use "Esqueci a senha".' : mensagemDeErro(r.error); return; }
+      $('regSenha').value = '';
+      if (!r.data || !r.data.session) {
+        // o projeto pede confirmacao por e-mail: a sessao so abre depois do clique no link
+        avisar('Quase lá: confirme o cadastro pelo link que mandamos para ' + email + '.', 'ok');
+        $('entrarEmail').value = email;
+        mostrarTela('telaEntrar');
+      }
+      // com sessao, onAuthStateChange leva para carregarPerfil
+    });
   });
   $('formEntrar').addEventListener('submit', function (ev) {
     ev.preventDefault();
@@ -673,7 +749,12 @@
       cartaoResumo(c.reservada, 'reservadas', 'ambar') +
       cartaoResumo(c.vendida, 'vendidas', 'azul') +
       cartaoResumo(equipe, equipe === 1 ? 'pessoa na equipe' : 'pessoas na equipe', 'vermelho');
+    var aguardando = aguardandoAprovacao().length;
+    var aviso = $('inicioAviso');
+    aviso.hidden = !(eGestor() && aguardando > 0);
+    if (!aviso.hidden) aviso.innerHTML = '<span><b>' + aguardando + (aguardando === 1 ? ' cadastro aguardando' : ' cadastros aguardando') + '</b> a sua aprovação para entrar no CRM.</span><a class="botao botao--pequeno" href="#equipe">Ver a equipe</a>';
   }
+  function aguardandoAprovacao() { return estado.perfis.filter(function (p) { return !p.ativo && !p.aprovado_em; }); }
   function cartaoResumo(n, rotulo, cor) { return '<div class="cartao" data-cor="' + cor + '"><span class="num">' + n + '</span><span class="rot">' + esc(rotulo) + '</span></div>'; }
 
   function etiqueta(status, mapa) { return '<span class="etiqueta" data-status="' + esc(status) + '">' + esc(mapa[status] || status) + '</span>'; }
@@ -746,15 +827,24 @@
   function desenharEquipe() {
     var corpo = $('tabelaEquipe').querySelector('tbody');
     var eu = estado.perfil.user_id;
-    corpo.innerHTML = estado.perfis.map(function (p) {
+    var aguardando = aguardandoAprovacao().length;
+    var aviso = $('equipeAviso');
+    aviso.hidden = aguardando === 0;
+    if (!aviso.hidden) aviso.innerHTML = '<span><b>' + aguardando + (aguardando === 1 ? ' cadastro aguardando aprovação.' : ' cadastros aguardando aprovação.') + '</b> Confira o nível pedido, ajuste se precisar e toque em Aprovar.</span>';
+    // quem aguarda aprovacao vem primeiro; depois, por nome
+    var lista = estado.perfis.slice().sort(function (a, b) { var pa = (!a.ativo && !a.aprovado_em) ? 0 : 1, pb = (!b.ativo && !b.aprovado_em) ? 0 : 1; return pa !== pb ? pa - pb : String(a.nome).localeCompare(String(b.nome), 'pt-BR'); });
+    corpo.innerHTML = lista.map(function (p) {
       var souEu = p.user_id === eu;
+      var esperando = !p.ativo && !p.aprovado_em;
       return '<tr data-user="' + esc(p.user_id) + '">' +
         '<td><b>' + esc(p.nome) + '</b>' + (souEu ? ' <small style="color: var(--texto-fraco)">(você)</small>' : '') + '</td>' +
         '<td>' + esc(p.email) + '</td>' +
         '<td class="inteiro">' + esc(telefoneBonito(p.telefone)) + '</td>' +
         '<td>' + (eGestor() && !souEu ? '<select class="papel-sel" data-papel-de="' + esc(p.user_id) + '" aria-label="Papel de ' + esc(p.nome) + '">' + ['gestor', 'administrativo', 'corretor'].map(function (x) { return '<option value="' + x + '"' + (x === p.papel ? ' selected' : '') + '>' + NOMES.papel[x] + '</option>'; }).join('') + '</select>' : etiqueta(p.papel, NOMES.papel)) + '</td>' +
-        '<td>' + (!p.ativo ? etiqueta('inativo', { inativo: 'Inativo' }) : !p.senha_definida ? etiqueta('pendente', { pendente: 'Convite pendente' }) : etiqueta('ativo', { ativo: 'Ativo' })) + '</td>' +
-        '<td>' + (eGestor() && !souEu ? '<button type="button" class="botao botao--pequeno" data-ativo-de="' + esc(p.user_id) + '" data-ativo="' + (p.ativo ? '1' : '0') + '">' + (p.ativo ? 'Desativar' : 'Reativar') + '</button>' : '') + '</td>' +
+        '<td>' + (esperando ? etiqueta('aguardando', { aguardando: 'Aguardando aprovação' }) : !p.ativo ? etiqueta('inativo', { inativo: 'Inativo' }) : !p.senha_definida ? etiqueta('pendente', { pendente: 'Convite pendente' }) : etiqueta('ativo', { ativo: 'Ativo' })) + '</td>' +
+        '<td>' + (eGestor() && !souEu ? (esperando
+            ? '<div class="acoes"><button type="button" class="botao botao--pequeno botao--cheio" data-aprovar-de="' + esc(p.user_id) + '">Aprovar</button><button type="button" class="botao botao--pequeno" data-recusar-de="' + esc(p.user_id) + '">Recusar</button></div>'
+            : '<button type="button" class="botao botao--pequeno" data-ativo-de="' + esc(p.user_id) + '" data-ativo="' + (p.ativo ? '1' : '0') + '">' + (p.ativo ? 'Desativar' : 'Reativar') + '</button>') : '') + '</td>' +
       '</tr>';
     }).join('');
   }
@@ -769,6 +859,29 @@
     });
   });
   $('tabelaEquipe').addEventListener('click', function (ev) {
+    var ap = ev.target.closest('[data-aprovar-de]');
+    if (ap) {
+      var uidAp = ap.getAttribute('data-aprovar-de');
+      var pAp = estado.perfis.filter(function (x) { return x.user_id === uidAp; })[0];
+      sb.from('crm_perfis').update({ ativo: true, aprovado_em: new Date().toISOString() }).eq('user_id', uidAp).then(function (r) {
+        if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
+        avisar((pAp ? pAp.nome : 'Cadastro') + ' aprovado como ' + (pAp ? (NOMES.papel[pAp.papel] || pAp.papel).toLowerCase() : '') + '.', 'ok');
+        recarregar('perfis');
+      });
+      return;
+    }
+    var rec = ev.target.closest('[data-recusar-de]');
+    if (rec) {
+      var uidRec = rec.getAttribute('data-recusar-de');
+      var pRec = estado.perfis.filter(function (x) { return x.user_id === uidRec; })[0];
+      if (!window.confirm('Recusar o cadastro de ' + (pRec ? pRec.nome : 'esta pessoa') + '? Ela continua sem acesso e fica como desativada.')) return;
+      sb.from('crm_perfis').update({ ativo: false, aprovado_em: new Date().toISOString() }).eq('user_id', uidRec).then(function (r) {
+        if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
+        avisar('Cadastro recusado.', 'ok');
+        recarregar('perfis');
+      });
+      return;
+    }
     var b = ev.target.closest('[data-ativo-de]');
     if (!b) return;
     var uid = b.getAttribute('data-ativo-de');

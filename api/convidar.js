@@ -135,7 +135,8 @@ module.exports = async function (req, res) {
     if (jaNoCrm) return res.status(409).json({ ok: false, motivo: 'ja esta na equipe', nome: jaNoCrm.nome, ativo: jaNoCrm.ativo });
 
     const resultado = await convidar(email, nome);
-    await gravarPerfil({ user_id: resultado.userId, nome, email, telefone, papel, ativo: true, senha_definida: resultado.convidado ? false : !!resultado.jaTinhaSenha });
+    // quem e convidado por um gestor ja entra aprovado (aprovado_em): a aprovacao e o proprio convite
+    await gravarPerfil({ user_id: resultado.userId, nome, email, telefone, papel, ativo: true, senha_definida: resultado.convidado ? false : !!resultado.jaTinhaSenha, aprovado_em: new Date().toISOString() });
     return res.status(200).json({ ok: true, convidado: resultado.convidado, jaTinhaConta: !resultado.convidado, papel });
   } catch (e) {
     console.error('convidar:', e && e.message);

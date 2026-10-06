@@ -21,12 +21,37 @@ Supabase, sem etapa de build, publicado pela Vercel.
 | Tela | O que faz |
 |---|---|
 | Entrar | E-mail e senha do Supabase; "Esqueci a senha" manda o link de recuperacao |
+| Criar conta | Nome, e-mail, senha e nivel. Grava o login no Supabase Auth e o perfil em `crm_perfis`. O **primeiro** cadastro vira gestor na hora; os seguintes ficam **aguardando aprovacao** de um gestor (ver abaixo) |
 | Criar a senha | Quem chega pelo link do convite cria a senha antes de entrar |
 | Sem acesso | Login que existe mas nao esta na equipe (um cliente do portal, por exemplo) ve so esta tela |
 | Inicio | Resumo: empreendimentos ativos, unidades disponiveis, reservadas, vendidas, pessoas na equipe |
 | Empreendimentos | Lista e cadastro (nome, cidade, UF, tipo, programa, status, observacoes), com a contagem de unidades por status |
 | Unidades | O espelho de vendas: uma peca por unidade, cor por status; filtro por empreendimento e status; cadastro de uma ou de varias de uma vez (CASA 01 a CASA 20) |
-| Equipe | Quem usa o CRM e com que papel; o gestor convida por e-mail, troca o papel e desativa (nunca apaga) |
+| Equipe | Quem usa o CRM e com que papel; o gestor aprova ou recusa os cadastros novos (ajustando o nivel antes, se quiser), convida por e-mail, troca o papel e desativa (nunca apaga) |
+
+### Cadastro e aprovacao
+
+Qualquer pessoa com o endereco do CRM pode criar conta, mas **ninguem entra
+sem um gestor liberar**: se o nivel escolhido valesse na hora, qualquer um
+viraria gestor. O fluxo e:
+
+1. A pessoa cria a conta (nome, e-mail, senha, nivel). O login nasce no
+   Supabase Auth, com nome e nivel guardados nos dados do login.
+2. Na primeira sessao, o CRM chama `crm_registrar` e o perfil nasce em
+   `crm_perfis`: o primeiro de todos como gestor ativo; os demais com o nivel
+   pedido, inativos e sem `aprovado_em`. A pessoa ve "Cadastro recebido".
+3. O gestor ve o aviso no Inicio e na Equipe, confere o nivel, ajusta se
+   precisar e toca em Aprovar (ou Recusar). Aprovado, a pessoa entra.
+
+Quem e convidado pela tela Equipe ja nasce aprovado: o convite e a aprovacao.
+
+### Separado do portal do cliente
+
+O CRM e o Central DPR usam o **mesmo Supabase Auth** (mesmo projeto), mas os
+usuarios sao separados pela tabela: so quem tem linha em `crm_perfis` entra no
+CRM, e um cliente do portal que tentar entrar ve "sua conta nao tem acesso".
+Um cadastro feito pelo CRM nao vira cliente do portal, e vice-versa. A senha
+nunca e gravada em tabela nossa: fica no Supabase Auth, criptografada.
 
 ### Papeis
 
@@ -44,17 +69,16 @@ venha de um gestor.
 
 ### 1. Banco (Supabase, o mesmo projeto do Central DPR)
 
-Supabase > SQL Editor > New query > colar `sql/001_base.sql` inteiro > Run.
-Pode rodar mais de uma vez. Todas as tabelas comecam com `crm_`; nada do
-portal do cliente e tocado.
+Supabase > SQL Editor > New query > colar `sql/001_base.sql` inteiro > Run;
+depois o mesmo com `sql/002_registro.sql`. Pode rodar mais de uma vez. Todas
+as tabelas comecam com `crm_`; nada do portal do cliente e tocado.
 
-Depois, o primeiro gestor:
+O primeiro gestor e **quem criar a primeira conta** na tela "Criar conta" do
+CRM. Se precisar promover alguem a gestor por fora (socorro), no SQL Editor:
+`select public.crm_promover_gestor('email@da.pessoa');`
 
-1. Authentication > Users > Add user (e-mail e senha), ou use um login que ja
-   existe.
-2. No SQL Editor: `select public.crm_promover_gestor('email@da.pessoa');`
-
-A partir dai, todo mundo entra por convite, na tela Equipe.
+A partir dai, todo mundo entra criando conta (e sendo aprovado) ou por
+convite, na tela Equipe.
 
 ### 2. Supabase > Authentication > URL Configuration
 
@@ -91,14 +115,20 @@ ela e feita para o navegador e, sem login, nao abre nada.
 - `sql/001_base.sql`: tabelas `crm_perfis`, `crm_empreendimentos`,
   `crm_unidades`; funcoes `crm_papel()`, `crm_tem_acesso()`, `crm_e_equipe()`,
   `crm_e_gestor()` (usadas pelas politicas); gatilhos de `atualizado_em` e de
-  protecao do perfil; `crm_promover_gestor(email)` para o primeiro gestor.
+  protecao do perfil; `crm_promover_gestor(email)` para socorro.
+- `sql/002_registro.sql`: coluna `aprovado_em` em `crm_perfis` (nulo e inativo
+  = aguardando; cheio e inativo = desativado), funcao `crm_registrar(nome,
+  papel)` chamada pela tela Criar conta, gatilho de protecao cobrindo a
+  aprovacao.
 
 ## Conferencia antes de cada commit
 
 - DOM falso (jsdom) com um Supabase de mentira: entrar, senha errada, convite
   obrigando a criar senha, login sem perfil, cada papel vendo o que deve,
   cadastro de empreendimento e de unidades (uma e em lote), equipe (convite
-  pela funcao, troca de papel, desativar).
+  pela funcao, troca de papel, desativar), criar conta (o primeiro vira
+  gestor; o segundo aguarda e e aprovado; recusa; e-mail repetido; projeto
+  com confirmacao por e-mail).
 - Funcao `api/convidar.js` com pedidos e Supabase falsos: metodo, token
   invalido, nao gestor, e-mail repetido, convite ok, e-mail que ja tinha login.
 - Navegador (puppeteer) em 1440 e 390 com o Supabase de mentira servido no
