@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM DPR</title>
+<meta name="description" content="CRM da DPR Construtora: leads, funil, estoque de unidades e equipe.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2d2d2d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23d32f2f'/%3E%3Ctext x='16' y='21' font-family='Arial' font-weight='700' font-size='13' text-anchor='middle' fill='%23fff'%3EDPR%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- ===========================================================================
+     CRM DPR -- etapa 1: a base. Login, perfis, empreendimentos, unidades, equipe.
+     Um arquivo so, como o Central DPR (portal do cliente): HTML, CSS e script
+     aqui dentro, banco e login no Supabase (o mesmo projeto do Central, com
+     as tabelas crm_*), funcoes na pasta api/. Sem build; a Vercel serve direto.
+
+     QUEM VE O QUE e decidido no banco (RLS, ver sql/001_base.sql). A tela so
+     esconde o que a pessoa nao pode fazer, para nao oferecer botao que vai
+     falhar. Papeis: gestor (tudo), administrativo (edita empreendimentos e
+     unidades), corretor (so le).
+
+     As telas: entrar / criar senha / sem acesso, e dentro do CRM: Inicio,
+     Empreendimentos, Unidades (espelho de vendas), Equipe. A navegacao e por
+     #ancora, entao o botao voltar do navegador funciona.
+     =========================================================================== -->
+<style>
+  :root {
+    --primario: #2d2d2d;
+    --secundario: #3a3a3a;
+    --vermelho: #d32f2f;
+    --vermelho-escuro: #b71c1c;
+    --fundo: #f4f4f6;
+    --cartao: #ffffff;
+    --texto: #2b2b2e;
+    --texto-fraco: #6f6f78;
+    --linha: #e3e3e8;
+    --verde: #2e7d32;
+    --ambar: #ef6c00;
+    --azul: #1565c0;
+    --cinza: #8a8a94;
+    --titulo: 'Montserrat', 'Segoe UI', sans-serif;
+    --texto-fonte: 'Inter', 'Segoe UI', sans-serif;
+    --raio: 10px;
+    --sombra: 0 1px 2px rgba(20, 20, 30, 0.06), 0 6px 20px rgba(20, 20, 30, 0.06);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font-family: var(--texto-fonte); font-size: 15px; line-height: 1.5; min-height: 100vh; }
+  h1, h2, h3 { margin: 0; font-family: var(--titulo); font-weight: 700; letter-spacing: -0.01em; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; }
+  p { margin: 0; }
+  a { color: var(--vermelho); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; left: -9999px; }
+
+  /* ---- botoes ---- */
+  .botao { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--linha); background: var(--cartao); color: var(--texto); font-weight: 600; cursor: pointer; text-decoration: none; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s; white-space: nowrap; }
+  .botao:hover { border-color: #c9c9d1; background: #fafafb; }
+  .botao:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 2px; }
+  .botao--cheio { background: var(--vermelho); border-color: var(--vermelho); color: #fff; }
+  .botao--cheio:hover { background: var(--vermelho-escuro); border-color: var(--vermelho-escuro); }
+  .botao--escuro { background: var(--primario); border-color: var(--primario); color: #fff; }
+  .botao--escuro:hover { background: #111; }
+  .botao--leve { border-color: transparent; background: transparent; color: var(--texto-fraco); }
+  .botao--leve:hover { background: rgba(0, 0, 0, 0.05); color: var(--texto); }
+  .botao[disabled] { opacity: 0.55; cursor: default; pointer-events: none; }
+  .botao--pequeno { min-height: 34px; padding: 5px 10px; font-size: 13px; }
+
+  /* ---- campos ---- */
+  /* min-width: 0 no campo e nos controles: dentro de uma grade, select e input
+     tem largura minima propria e estouravam o dialogo, que rolava de lado */
+  .campo { display: grid; gap: 6px; min-width: 0; }
+  .campo label { font-size: 13px; font-weight: 600; color: var(--texto-fraco); }
+  .campo input, .campo select, .campo textarea { width: 100%; min-width: 0; min-height: 44px; padding: 9px 12px; border: 1px solid var(--linha); border-radius: 8px; background: #fff; font-size: 16px; }
+  .campo textarea { min-height: 84px; resize: vertical; }
+  .campo input:focus, .campo select:focus, .campo textarea:focus { outline: none; border-color: var(--vermelho); box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.12); }
+  .campo input[disabled], .campo select[disabled], .campo textarea[disabled] { background: #f4f4f6; color: var(--texto-fraco); }
+  .campo .dica { font-size: 12px; color: var(--texto-fraco); }
+  .campos-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .campos-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .erro { color: var(--vermelho); font-size: 13px; font-weight: 600; min-height: 1.2em; }
+  .erro:empty { display: none; }
+
+  /* ---- telas de entrada ---- */
+  .entrada { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, #1f1f22 0%, #2d2d2d 55%, #3a3a3a 100%); }
+  .entrada-caixa { width: min(420px, 100%); background: var(--cartao); border-radius: 14px; padding: 32px 28px 28px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); display: grid; gap: 18px; }
+  .marca { display: inline-flex; align-items: center; gap: 10px; font-family: var(--titulo); font-weight: 800; font-size: 20px; color: var(--primario); text-decoration: none; }
+  .marca i { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--vermelho); color: #fff; font-style: normal; font-size: 11px; letter-spacing: 0.04em; }
+  .entrada-caixa h1 { font-size: 20px; }
+  .entrada-caixa p { color: var(--texto-fraco); font-size: 14px; }
+  .entrada-caixa form { display: grid; gap: 14px; }
+  .entrada-caixa .botao { min-height: 46px; }
+  .entrada-caixa .pe { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .entrada-caixa .pe button { background: none; border: 0; min-height: 44px; padding: 10px 0; color: var(--vermelho); font-weight: 600; cursor: pointer; }
+  .carregando { min-height: 100vh; display: grid; place-items: center; color: var(--texto-fraco); font-weight: 600; }
+
+  /* ---- o CRM ---- */
+  .topo { position: sticky; top: 0; z-index: 50; background: var(--primario); color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }
+  .topo-dentro { display: flex; align-items: center; gap: 18px; padding: 0 clamp(14px, 3vw, 32px); min-height: 60px; }
+  .topo .marca { color: #fff; font-size: 17px; }
+  .topo nav { display: flex; gap: 4px; margin-left: 8px; overflow-x: auto; scrollbar-width: none; }
+  .topo nav::-webkit-scrollbar { display: none; }
+  .topo nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 8px; color: rgba(255, 255, 255, 0.78); text-decoration: none; font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .topo nav a:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+  .topo nav a.ativo { background: var(--vermelho); color: #fff; }
+  .topo-usuario { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .topo-usuario .quem { text-align: right; line-height: 1.2; }
+  .topo-usuario .quem b { display: block; font-size: 14px; }
+  .topo-usuario .quem span { font-size: 12px; color: rgba(255, 255, 255, 0.65); text-transform: capitalize; }
+  .topo-usuario .botao { min-height: 36px; padding: 5px 12px; font-size: 13px; background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.25); }
+  .topo-usuario .botao:hover { background: rgba(255, 255, 255, 0.1); }
+  main { padding: clamp(18px, 3vw, 32px); max-width: 1320px; margin: 0 auto; }
+  .painel { display: grid; gap: 18px; }
+  .cabeca { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .cabeca p { color: var(--texto-fraco); font-size: 14px; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .cartao { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); box-shadow: var(--sombra); }
+  .cartao--corpo { padding: 18px 20px; }
+
+  /* resumo do inicio */
+  .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+  .resumo .cartao { padding: 16px 18px; display: grid; gap: 4px; }
+  .resumo .num { font-family: var(--titulo); font-weight: 800; font-size: 30px; line-height: 1; }
+  .resumo .rot { font-size: 13px; color: var(--texto-fraco); font-weight: 600; }
+  .resumo .cartao[data-cor="verde"] .num { color: var(--verde); }
+  .resumo .cartao[data-cor="ambar"] .num { color: var(--ambar); }
+  .resumo .cartao[data-cor="vermelho"] .num { color: var(--vermelho); }
+  .resumo .cartao[data-cor="azul"] .num { color: var(--azul); }
+  .proximas { padding: 18px 20px; display: grid; gap: 8px; }
+  .proximas ol { margin: 0; padding-left: 20px; color: var(--texto-fraco); font-size: 14px; display: grid; gap: 4px; }
+
+  /* tabelas */
+  .tabela-caixa { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--texto-fraco); font-weight: 700; background: #fafafb; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #fcfcfd; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.inteiro { white-space: nowrap; }
+  td .acoes { gap: 6px; }
+  .papel-sel { min-height: 36px; padding: 6px 10px; border: 1px solid var(--linha); border-radius: 8px; background: #fff; font-size: 14px; }
+  .papel-sel:focus { outline: none; border-color: var(--vermelho); box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.12); }
+  .vazio { padding: 40px 20px; text-align: center; color: var(--texto-fraco); }
+  .vazio b { display: block; color: var(--texto); margin-bottom: 4px; }
+
+  /* etiquetas de status */
+  .etiqueta { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #eee; color: var(--texto); }
+  .etiqueta::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .etiqueta[data-status="disponivel"], .etiqueta[data-status="lancamento"], .etiqueta[data-status="ativo"] { background: #e8f5e9; color: var(--verde); }
+  .etiqueta[data-status="reservada"], .etiqueta[data-status="em_obras"], .etiqueta[data-status="pendente"] { background: #fff3e0; color: var(--ambar); }
+  .etiqueta[data-status="vendida"], .etiqueta[data-status="entregue"] { background: #e3f2fd; color: var(--azul); }
+  .etiqueta[data-status="indisponivel"], .etiqueta[data-status="encerrado"], .etiqueta[data-status="inativo"] { background: #eceff1; color: var(--cinza); }
+  .etiqueta[data-status="gestor"] { background: #fdecea; color: var(--vermelho); }
+  .etiqueta[data-status="administrativo"] { background: #e3f2fd; color: var(--azul); }
+  .etiqueta[data-status="corretor"] { background: #f1f1f4; color: var(--texto); }
+
+  /* o espelho de vendas */
+  .filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .filtros .campo { min-width: 200px; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--texto-fraco); }
+  .espelho { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+  .unidade { position: relative; display: grid; gap: 2px; padding: 12px 12px 10px; border-radius: var(--raio); border: 1px solid var(--linha); border-top: 5px solid var(--cinza); background: var(--cartao); text-align: left; cursor: pointer; box-shadow: var(--sombra); transition: transform 0.15s, box-shadow 0.15s; }
+  .unidade:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(20, 20, 30, 0.12); }
+  .unidade:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 2px; }
+  .unidade b { font-family: var(--titulo); font-size: 15px; }
+  .unidade small { color: var(--texto-fraco); font-size: 12px; }
+  .unidade .valor { font-size: 13px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .unidade[data-status="disponivel"] { border-top-color: var(--verde); }
+  .unidade[data-status="reservada"] { border-top-color: var(--ambar); }
+  .unidade[data-status="vendida"] { border-top-color: var(--azul); }
+  .unidade[data-status="indisponivel"] { border-top-color: var(--cinza); opacity: 0.75; }
+  .legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+  /* dialogos */
+  dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; border: 0; border-radius: 14px; padding: 0; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35); color: var(--texto); }
+  dialog::backdrop { background: rgba(20, 20, 30, 0.55); }
+  dialog form { display: grid; gap: 14px; padding: 24px; }
+  dialog h2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  dialog h2 button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 20px; line-height: 1; color: var(--texto-fraco); }
+  dialog h2 button:hover { background: rgba(0, 0, 0, 0.06); color: var(--texto); }
+  dialog .pe { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+  dialog .pe .apagar { margin-right: auto; color: var(--vermelho); }
+
+  /* aviso (toast) */
+  .aviso { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); z-index: 100; max-width: min(520px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 10px; background: var(--primario); color: #fff; font-weight: 600; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; }
+  .aviso.visivel { opacity: 1; transform: translate(-50%, 0); }
+  .aviso[data-tipo="erro"] { background: var(--vermelho); }
+  .aviso[data-tipo="ok"] { background: var(--verde); }
+
+  @media (max-width: 760px) {
+    .campos-2, .campos-3 { grid-template-columns: 1fr; }
+    .topo-dentro { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; gap: 8px 14px; }
+    .topo nav { order: 3; width: 100%; margin-left: 0; }
+    .topo-usuario .quem span { display: none; }
+    th, td { padding: 10px 10px; }
+    .espelho { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+    /* no dedo, todo botao tem 44px, inclusive os pequenos das tabelas */
+    .botao--pequeno, .topo-usuario .botao, .papel-sel { min-height: 44px; }
+    .papel-sel { padding: 8px; border-radius: 8px; border: 1px solid var(--linha); }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
+</style>
+</head>
+<body>
+
+<div class="carregando" id="telaCarregando">Abrindo o CRM...</div>
+
+<!-- ======================================================= entrar ======= -->
+<section class="entrada" id="telaEntrar" hidden>
+  <div class="entrada-caixa">
+    <span class="marca"><i>DPR</i>CRM</span>
+    <div>
+      <h1 id="entrarTitulo">Entrar</h1>
+      <p id="entrarTexto">Use o e-mail e a senha do CRM. Se você foi convidado, abra o link que recebeu por e-mail.</p>
+    </div>
+    <form id="formEntrar" novalidate>
+      <div class="campo"><label for="entrarEmail">E-mail</label><input id="entrarEmail" type="email" autocomplete="username" required></div>
+      <div class="campo" id="campoSenha"><label for="entrarSenha">Senha</label><input id="entrarSenha" type="password" autocomplete="current-password" required></div>
+      <p class="erro" id="entrarErro" role="alert"></p>
+      <button type="submit" class="botao botao--cheio" id="entrarBotao">Entrar</button>
+      <div class="pe">
+        <button type="button" id="entrarEsqueci">Esqueci a senha</button>
+        <button type="button" id="entrarVoltar" hidden>Voltar para entrar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ================================================== criar a senha ======= -->
+<section class="entrada" id="telaSenha" hidden>
+  <div class="entrada-caixa">
+    <span class="marca"><i>DPR</i>CRM</span>
+    <div>
+      <h1>Crie a sua senha</h1>
+      <p>Você entrou pelo link do convite. Escolha uma senha para os próximos acessos: pelo menos 8 caracteres.</p>
+    </div>
+    <form id="formSenha" novalidate>
+      <div class="campo"><label for="senhaNova">Nova senha</label><input id="senhaNova" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="campo"><label for="senhaRepete">Repita a senha</label><input id="senhaRepete" type="password" autocomplete="new-password" minlength="8" required></div>
+      <p class="erro" id="senhaErro" role="alert"></p>
+      <button type="submit" class="botao botao--cheio" id="senhaBotao">Salvar e entrar</button>
+    </form>
+  </div>
+</section>
+
+<!-- ===================================================== sem acesso ======= -->
+<section class="entrada" id="telaSemAcesso" hidden>
+  <div class="entrada-caixa">
+    <span class="marca"><i>DPR</i>CRM</span>
+    <div>
+      <h1>Sua conta não tem acesso ao CRM</h1>
+      <p id="semAcessoTexto">Este login existe, mas não está na equipe do CRM. Peça a um gestor da DPR para convidar o seu e-mail.</p>
+    </div>
+    <button type="button" class="botao" id="semAcessoSair">Sair</button>
+  </div>
+</section>
+
+<!-- ========================================================= o CRM ======= -->
+<div id="app" hidden>
+  <header class="topo">
+    <div class="topo-dentro">
+      <a class="marca" href="#inicio"><i>DPR</i>CRM</a>
+      <nav aria-label="Seções do CRM" id="menu">
+        <a href="#inicio" data-rota="inicio">Início</a>
+        <a href="#empreendimentos" data-rota="empreendimentos">Empreendimentos</a>
+        <a href="#unidades" data-rota="unidades">Unidades</a>
+        <a href="#equipe" data-rota="equipe" data-so="equipe">Equipe</a>
+      </nav>
+      <div class="topo-usuario">
+        <div class="quem"><b id="usuarioNome"></b><span id="usuarioPapel"></span></div>
+        <button type="button" class="botao" id="sair">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Inicio -->
+    <section class="painel" id="painelInicio" data-painel="inicio" hidden>
+      <div class="cabeca">
+        <div><h1>Início</h1><p id="inicioSaudacao"></p></div>
+      </div>
+      <div class="resumo" id="resumo"></div>
+      <div class="cartao proximas">
+        <h2>O que já funciona e o que vem</h2>
+        <ol>
+          <li><b>Agora:</b> empreendimentos, estoque de unidades (espelho de vendas) e equipe com convites.</li>
+          <li>Leads e funil em kanban, com o chat do site da DPR entrando como origem.</li>
+          <li>Fila de atendimento, alerta de lead novo no celular e app para o corretor.</li>
+          <li>Follow-up, tarefas, modelos de WhatsApp e documentos do financiamento.</li>
+          <li>Ranking, painel do gestor e relatórios. Depois, Facebook Lead Ads e a ponte com o Central DPR.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Empreendimentos -->
+    <section class="painel" id="painelEmpreendimentos" data-painel="empreendimentos" hidden>
+      <div class="cabeca">
+        <div><h1>Empreendimentos</h1><p>Os produtos da DPR. Cada um tem o seu estoque na aba Unidades.</p></div>
+        <div class="acoes"><button type="button" class="botao botao--cheio" id="novoEmpreendimento" data-so="equipe">Novo empreendimento</button></div>
+      </div>
+      <div class="cartao tabela-caixa">
+        <table id="tabelaEmpreendimentos">
+          <thead><tr><th>Nome</th><th>Cidade</th><th>Tipo</th><th>Status</th><th class="num">Disponíveis</th><th class="num">Reservadas</th><th class="num">Vendidas</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="vazio" id="empreendimentosVazio" hidden><b>Nenhum empreendimento ainda</b>Cadastre o primeiro em "Novo empreendimento".</div>
+      </div>
+    </section>
+
+    <!-- Unidades -->
+    <section class="painel" id="painelUnidades" data-painel="unidades" hidden>
+      <div class="cabeca">
+        <div><h1>Unidades</h1><p>O espelho de vendas: uma peça por casa, lote ou apartamento. Toque para ver ou editar.</p></div>
+        <div class="acoes">
+          <button type="button" class="botao" id="novoLote" data-so="equipe">Adicionar várias</button>
+          <button type="button" class="botao botao--cheio" id="novaUnidade" data-so="equipe">Nova unidade</button>
+        </div>
+      </div>
+      <div class="filtros">
+        <div class="campo"><label for="filtroEmpreendimento">Empreendimento</label><select id="filtroEmpreendimento"></select></div>
+        <div class="campo"><label for="filtroStatus">Status</label>
+          <select id="filtroStatus">
+            <option value="">Todos</option>
+            <option value="disponivel">Disponíveis</option>
+            <option value="reservada">Reservadas</option>
+            <option value="vendida">Vendidas</option>
+            <option value="indisponivel">Indisponíveis</option>
+          </select>
+        </div>
+        <p class="legenda" id="legendaUnidades" aria-live="polite"></p>
+      </div>
+      <div class="espelho" id="espelho"></div>
+      <div class="cartao vazio" id="unidadesVazio" hidden><b>Nenhuma unidade aqui</b><span id="unidadesVazioTexto">Cadastre uma por vez ou várias de uma vez.</span></div>
+    </section>
+
+    <!-- Equipe -->
+    <section class="painel" id="painelEquipe" data-painel="equipe" hidden>
+      <div class="cabeca">
+        <div><h1>Equipe</h1><p>Quem entra no CRM e com que papel. Quem sai fica inativo, nunca é apagado.</p></div>
+        <div class="acoes"><button type="button" class="botao botao--cheio" id="convidar" data-so="gestor">Convidar</button></div>
+      </div>
+      <div class="cartao tabela-caixa">
+        <table id="tabelaEquipe">
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===================================================== dialogos ======= -->
+<dialog id="dlgEmpreendimento" aria-labelledby="dlgEmpreendimentoTitulo">
+  <form id="formEmpreendimento" method="dialog" novalidate>
+    <h2><span id="dlgEmpreendimentoTitulo">Novo empreendimento</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
+    <input type="hidden" id="empId">
+    <div class="campo"><label for="empNome">Nome</label><input id="empNome" required maxlength="120" placeholder="Villagio Caucaia II"></div>
+    <div class="campos-2">
+      <div class="campo"><label for="empCidade">Cidade</label><input id="empCidade" maxlength="80" placeholder="Cotia"></div>
+      <div class="campo"><label for="empUf">UF</label><input id="empUf" maxlength="2" value="SP" style="text-transform: uppercase;"></div>
+    </div>
+    <div class="campos-2">
+      <div class="campo"><label for="empTipo">Tipo</label>
+        <select id="empTipo"><option value="casas">Casas</option><option value="lotes">Lotes</option><option value="apartamentos">Apartamentos</option></select>
+      </div>
+      <div class="campo"><label for="empStatus">Status</label>
+        <select id="empStatus"><option value="lancamento">Lançamento</option><option value="em_obras">Em obras</option><option value="entregue">Entregue</option><option value="encerrado">Encerrado</option></select>
+      </div>
+    </div>
+    <div class="campo"><label for="empPrograma">Programa</label><input id="empPrograma" maxlength="80" value="Minha Casa, Minha Vida"></div>
+    <div class="campo"><label for="empObs">Observações</label><textarea id="empObs" maxlength="2000"></textarea></div>
+    <p class="erro" id="empErro" role="alert"></p>
+    <div class="pe">
+      <button type="button" class="botao botao--leve apagar" id="empApagar" hidden>Excluir</button>
+      <button type="button" class="botao" data-fechar>Cancelar</button>
+      <button type="submit" class="botao botao--cheio" id="empSalvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgUnidade" aria-labelledby="dlgUnidadeTitulo">
+  <form id="formUnidade" method="dialog" novalidate>
+    <h2><span id="dlgUnidadeTitulo">Nova unidade</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
+    <input type="hidden" id="uniId">
+    <div class="campos-2">
+      <div class="campo"><label for="uniEmpreendimento">Empreendimento</label><select id="uniEmpreendimento" required></select></div>
+      <div class="campo"><label for="uniCodigo">Código</label><input id="uniCodigo" required maxlength="40" placeholder="CASA 03"></div>
+    </div>
+    <div class="campos-3">
+      <div class="campo"><label for="uniQuadra">Quadra ou bloco</label><input id="uniQuadra" maxlength="40"></div>
+      <div class="campo"><label for="uniMetragem">Metragem (m²)</label><input id="uniMetragem" type="number" inputmode="decimal" step="0.01" min="0"></div>
+      <div class="campo"><label for="uniValor">Valor (R$)</label><input id="uniValor" type="number" inputmode="decimal" step="0.01" min="0"></div>
+    </div>
+    <div class="campo"><label for="uniStatus">Status</label>
+      <select id="uniStatus"><option value="disponivel">Disponível</option><option value="reservada">Reservada</option><option value="vendida">Vendida</option><option value="indisponivel">Indisponível</option></select>
+    </div>
+    <div class="campo"><label for="uniObs">Observações</label><textarea id="uniObs" maxlength="2000"></textarea></div>
+    <p class="erro" id="uniErro" role="alert"></p>
+    <div class="pe">
+      <button type="button" class="botao botao--leve apagar" id="uniApagar" hidden>Excluir</button>
+      <button type="button" class="botao" data-fechar>Fechar</button>
+      <button type="submit" class="botao botao--cheio" id="uniSalvar">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgLote" aria-labelledby="dlgLoteTitulo">
+  <form id="formLote" method="dialog" novalidate>
+    <h2><span id="dlgLoteTitulo">Adicionar várias unidades</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
+    <p style="color: var(--texto-fraco); font-size: 14px;">Cria uma sequência de uma vez, por exemplo CASA 01 a CASA 20. Códigos que já existem são pulados.</p>
+    <div class="campo"><label for="loteEmpreendimento">Empreendimento</label><select id="loteEmpreendimento" required></select></div>
+    <div class="campos-3">
+      <div class="campo"><label for="lotePrefixo">Prefixo</label><input id="lotePrefixo" value="CASA" maxlength="20" required></div>
+      <div class="campo"><label for="loteDe">De</label><input id="loteDe" type="number" inputmode="numeric" min="1" max="999" value="1" required></div>
+      <div class="campo"><label for="loteAte">Até</label><input id="loteAte" type="number" inputmode="numeric" min="1" max="999" value="10" required></div>
+    </div>
+    <div class="campos-3">
+      <div class="campo"><label for="loteQuadra">Quadra ou bloco</label><input id="loteQuadra" maxlength="40"></div>
+      <div class="campo"><label for="loteMetragem">Metragem (m²)</label><input id="loteMetragem" type="number" inputmode="decimal" step="0.01" min="0"></div>
+      <div class="campo"><label for="loteValor">Valor (R$)</label><input id="loteValor" type="number" inputmode="decimal" step="0.01" min="0"></div>
+    </div>
+    <p class="erro" id="loteErro" role="alert"></p>
+    <div class="pe">
+      <button type="button" class="botao" data-fechar>Cancelar</button>
+      <button type="submit" class="botao botao--cheio" id="loteSalvar">Adicionar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgConvite" aria-labelledby="dlgConviteTitulo">
+  <form id="formConvite" method="dialog" novalidate>
+    <h2><span id="dlgConviteTitulo">Convidar para o CRM</span><button type="button" data-fechar aria-label="Fechar">&times;</button></h2>
+    <p style="color: var(--texto-fraco); font-size: 14px;">A pessoa recebe um e-mail com o link para criar a senha e já entra com o papel escolhido.</p>
+    <div class="campo"><label for="convNome">Nome</label><input id="convNome" required maxlength="120" autocomplete="off"></div>
+    <div class="campos-2">
+      <div class="campo"><label for="convEmail">E-mail</label><input id="convEmail" type="email" required maxlength="160" autocomplete="off"></div>
+      <div class="campo"><label for="convTelefone">WhatsApp</label><input id="convTelefone" type="tel" inputmode="numeric" maxlength="16" placeholder="(11) 99999-9999"></div>
+    </div>
+    <div class="campo"><label for="convPapel">Papel</label>
+      <select id="convPapel"><option value="corretor">Corretor: vê empreendimentos e unidades</option><option value="administrativo">Administrativo: edita empreendimentos e unidades</option><option value="gestor">Gestor: tudo, inclusive convidar</option></select>
+    </div>
+    <p class="erro" id="convErro" role="alert"></p>
+    <div class="pe">
+      <button type="button" class="botao" data-fechar>Cancelar</button>
+      <button type="submit" class="botao botao--cheio" id="convSalvar">Enviar convite</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---- Supabase: o mesmo projeto do Central DPR. A chave abaixo e a
+     PUBLICAVEL: feita para ficar no navegador; sem login ela nao abre nada,
+     e com login so abre o que as travas do banco deixam. A de servico fica
+     na Vercel (api/convidar.js). ---- */
+  var SUPABASE_URL = 'https://roashkfdjgsweuftqhyx.supabase.co';
+  var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_T4u8FTh9_VvBtW7Ycxw4FQ_dHu0n5tT';
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var dinheiro = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  var NOMES = {
+    status_unidade: { disponivel: 'Disponível', reservada: 'Reservada', vendida: 'Vendida', indisponivel: 'Indisponível' },
+    status_emp: { lancamento: 'Lançamento', em_obras: 'Em obras', entregue: 'Entregue', encerrado: 'Encerrado' },
+    tipo: { casas: 'Casas', lotes: 'Lotes', apartamentos: 'Apartamentos' },
+    papel: { gestor: 'Gestor', administrativo: 'Administrativo', corretor: 'Corretor' }
+  };
+  var PREFIXO_POR_TIPO = { casas: 'CASA', lotes: 'LOTE', apartamentos: 'APTO' };
+
+  var estado = { sessao: null, perfil: null, empreendimentos: [], unidades: [], perfis: [], rota: 'inicio', definirSenha: false, carregou: false };
+
+  /* ---- aviso no pe da tela ---- */
+  var avisoEl = $('aviso'), avisoRelogio = null;
+  function avisar(texto, tipo) {
+    avisoEl.textContent = texto;
+    avisoEl.setAttribute('data-tipo', tipo || 'info');
+    avisoEl.classList.add('visivel');
+    window.clearTimeout(avisoRelogio);
+    avisoRelogio = window.setTimeout(function () { avisoEl.classList.remove('visivel'); }, 4200);
+  }
+  function mensagemDeErro(erro) {
+    var m = (erro && (erro.message || erro.motivo)) || String(erro || 'erro');
+    if (/duplicate key|unique/i.test(m)) return 'Já existe um registro com esse nome ou código.';
+    if (/row-level security|permission denied|violates/i.test(m)) return 'Você não tem permissão para fazer isso.';
+    if (/foreign key|restrict/i.test(m)) return 'Não dá para excluir: há unidades ligadas a este empreendimento.';
+    if (/Failed to fetch|NetworkError|network/i.test(m)) return 'Sem conexão. Tente de novo.';
+    return m;
+  }
+
+  /* ---- telas ---- */
+  var TELAS = ['telaCarregando', 'telaEntrar', 'telaSenha', 'telaSemAcesso', 'app'];
+  function mostrarTela(id) { TELAS.forEach(function (t) { $(t).hidden = t !== id; }); }
+
+  /* ---- a sessao ---- */
+  function aoMudarSessao(sessao) {
+    estado.sessao = sessao;
+    if (!sessao) { estado.perfil = null; estado.carregou = false; mostrarTela('telaEntrar'); return; }
+    if (estado.definirSenha) { mostrarTela('telaSenha'); return; }
+    carregarPerfil();
+  }
+  function carregarPerfil() {
+    return sb.from('crm_perfis').select('*').eq('user_id', estado.sessao.user.id).maybeSingle().then(function (r) {
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); mostrarTela('telaSemAcesso'); return; }
+      var p = r.data;
+      if (!p || !p.ativo) {
+        $('semAcessoTexto').textContent = p && !p.ativo ? 'Esta conta foi desativada no CRM. Fale com um gestor da DPR.' : 'Este login existe, mas não está na equipe do CRM. Peça a um gestor da DPR para convidar o seu e-mail.';
+        mostrarTela('telaSemAcesso');
+        return;
+      }
+      estado.perfil = p;
+      if (!p.senha_definida) { mostrarTela('telaSenha'); return; }
+      entrarNoApp();
+    });
+  }
+  function entrarNoApp() {
+    var p = estado.perfil;
+    document.body.setAttribute('data-papel', p.papel);
+    $('usuarioNome').textContent = p.nome;
+    $('usuarioPapel').textContent = NOMES.papel[p.papel] || p.papel;
+    $('inicioSaudacao').textContent = 'Olá, ' + p.nome.split(' ')[0] + '. Você entrou como ' + (NOMES.papel[p.papel] || p.papel).toLowerCase() + '.';
+    aplicarPermissoes();
+    mostrarTela('app');
+    carregarTudo().then(function () { ir(rotaDaUrl()); });
+  }
+  function podeEditar() { return !!estado.perfil && (estado.perfil.papel === 'gestor' || estado.perfil.papel === 'administrativo'); }
+  function eGestor() { return !!estado.perfil && estado.perfil.papel === 'gestor'; }
+  function aplicarPermissoes() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-so]'), function (el) {
+      var regra = el.getAttribute('data-so');
+      el.hidden = regra === 'gestor' ? !eGestor() : regra === 'equipe' ? !podeEditar() : false;
+    });
+  }
+
+  /* ---- entrar, esqueci a senha, criar senha, sair ---- */
+  var modoEsqueci = false;
+  $('entrarEsqueci').addEventListener('click', function () {
+    modoEsqueci = true;
+    $('entrarTitulo').textContent = 'Recuperar a senha';
+    $('entrarTexto').textContent = 'Digite o e-mail cadastrado. Você recebe um link para criar uma senha nova.';
+    $('campoSenha').hidden = true;
+    $('entrarBotao').textContent = 'Enviar link';
+    $('entrarEsqueci').hidden = true;
+    $('entrarVoltar').hidden = false;
+    $('entrarErro').textContent = '';
+  });
+  $('entrarVoltar').addEventListener('click', function () {
+    modoEsqueci = false;
+    $('entrarTitulo').textContent = 'Entrar';
+    $('entrarTexto').textContent = 'Use o e-mail e a senha do CRM. Se você foi convidado, abra o link que recebeu por e-mail.';
+    $('campoSenha').hidden = false;
+    $('entrarBotao').textContent = 'Entrar';
+    $('entrarEsqueci').hidden = false;
+    $('entrarVoltar').hidden = true;
+    $('entrarErro').textContent = '';
+  });
+  $('formEntrar').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var email = $('entrarEmail').value.trim().toLowerCase();
+    var senha = $('entrarSenha').value;
+    var erro = $('entrarErro');
+    erro.textContent = '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { erro.textContent = 'Digite um e-mail válido.'; return; }
+    var botao = $('entrarBotao');
+    botao.disabled = true;
+    if (modoEsqueci) {
+      sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname }).then(function (r) {
+        botao.disabled = false;
+        if (r.error) { erro.textContent = mensagemDeErro(r.error); return; }
+        avisar('Se esse e-mail estiver cadastrado, o link chega em instantes.', 'ok');
+        $('entrarVoltar').click();
+      });
+      return;
+    }
+    if (!senha) { erro.textContent = 'Digite a senha.'; botao.disabled = false; return; }
+    sb.auth.signInWithPassword({ email: email, password: senha }).then(function (r) {
+      botao.disabled = false;
+      if (r.error) { erro.textContent = /Invalid login/i.test(r.error.message) ? 'E-mail ou senha errados.' : mensagemDeErro(r.error); return; }
+      $('entrarSenha').value = '';
+    });
+  });
+  $('formSenha').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var s1 = $('senhaNova').value, s2 = $('senhaRepete').value, erro = $('senhaErro');
+    erro.textContent = '';
+    if (s1.length < 8) { erro.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (s1 !== s2) { erro.textContent = 'As duas senhas não são iguais.'; return; }
+    var botao = $('senhaBotao');
+    botao.disabled = true;
+    sb.auth.updateUser({ password: s1 }).then(function (r) {
+      if (r.error) { botao.disabled = false; erro.textContent = mensagemDeErro(r.error); return; }
+      estado.definirSenha = false;
+      return sb.from('crm_perfis').update({ senha_definida: true }).eq('user_id', estado.sessao.user.id).then(function () {
+        botao.disabled = false;
+        $('senhaNova').value = ''; $('senhaRepete').value = '';
+        avisar('Senha salva.', 'ok');
+        carregarPerfil();
+      });
+    });
+  });
+  function sair() { sb.auth.signOut().then(function () { window.location.hash = ''; }); }
+  $('sair').addEventListener('click', sair);
+  $('semAcessoSair').addEventListener('click', sair);
+
+  /* ---- navegacao por ancora ---- */
+  var ROTAS = ['inicio', 'empreendimentos', 'unidades', 'equipe'];
+  function rotaDaUrl() { var h = window.location.hash.replace('#', ''); return ROTAS.indexOf(h) >= 0 ? h : 'inicio'; }
+  function ir(rota) {
+    if (rota === 'equipe' && !podeEditar()) rota = 'inicio';
+    estado.rota = rota;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-painel]'), function (s) { s.hidden = s.getAttribute('data-painel') !== rota; });
+    Array.prototype.forEach.call(document.querySelectorAll('#menu a'), function (a) { a.classList.toggle('ativo', a.getAttribute('data-rota') === rota); });
+    if (window.location.hash.replace('#', '') !== rota) window.history.replaceState(null, '', '#' + rota);
+    desenhar(rota);
+  }
+  window.addEventListener('hashchange', function () { if (estado.perfil && !$('app').hidden) ir(rotaDaUrl()); });
+
+  /* ---- dados ---- */
+  function carregarTudo() {
+    return Promise.all([
+      sb.from('crm_empreendimentos').select('*').order('nome'),
+      sb.from('crm_unidades').select('*').order('codigo'),
+      sb.from('crm_perfis').select('*').order('nome')
+    ]).then(function (rs) {
+      var erro = rs.map(function (r) { return r.error; }).filter(Boolean)[0];
+      if (erro) avisar(mensagemDeErro(erro), 'erro');
+      estado.empreendimentos = rs[0].data || [];
+      estado.unidades = rs[1].data || [];
+      estado.perfis = rs[2].data || [];
+      estado.carregou = true;
+    });
+  }
+  function recarregar(oque) {
+    var mapa = { empreendimentos: ['crm_empreendimentos', 'nome'], unidades: ['crm_unidades', 'codigo'], perfis: ['crm_perfis', 'nome'] };
+    return sb.from(mapa[oque][0]).select('*').order(mapa[oque][1]).then(function (r) {
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
+      estado[oque] = r.data || [];
+      desenhar(estado.rota);
+    });
+  }
+  function empPorId(id) { return estado.empreendimentos.filter(function (e) { return e.id === id; })[0] || null; }
+  function contagem(empId) {
+    var c = { disponivel: 0, reservada: 0, vendida: 0, indisponivel: 0, total: 0 };
+    estado.unidades.forEach(function (u) { if (empId === undefined || u.empreendimento_id === empId) { c[u.status] = (c[u.status] || 0) + 1; c.total++; } });
+    return c;
+  }
+
+  /* ---- desenhar cada painel ---- */
+  function desenhar(rota) {
+    if (rota === 'inicio') desenharInicio();
+    if (rota === 'empreendimentos') desenharEmpreendimentos();
+    if (rota === 'unidades') desenharUnidades();
+    if (rota === 'equipe') desenharEquipe();
+  }
+  function desenharInicio() {
+    var c = contagem();
+    var ativos = estado.empreendimentos.filter(function (e) { return e.status !== 'encerrado'; }).length;
+    var equipe = estado.perfis.filter(function (p) { return p.ativo; }).length;
+    $('resumo').innerHTML =
+      cartaoResumo(ativos, ativos === 1 ? 'empreendimento ativo' : 'empreendimentos ativos', '') +
+      cartaoResumo(c.disponivel, 'unidades disponíveis', 'verde') +
+      cartaoResumo(c.reservada, 'reservadas', 'ambar') +
+      cartaoResumo(c.vendida, 'vendidas', 'azul') +
+      cartaoResumo(equipe, equipe === 1 ? 'pessoa na equipe' : 'pessoas na equipe', 'vermelho');
+  }
+  function cartaoResumo(n, rotulo, cor) { return '<div class="cartao" data-cor="' + cor + '"><span class="num">' + n + '</span><span class="rot">' + esc(rotulo) + '</span></div>'; }
+
+  function etiqueta(status, mapa) { return '<span class="etiqueta" data-status="' + esc(status) + '">' + esc(mapa[status] || status) + '</span>'; }
+
+  function desenharEmpreendimentos() {
+    var corpo = $('tabelaEmpreendimentos').querySelector('tbody');
+    $('empreendimentosVazio').hidden = estado.empreendimentos.length > 0;
+    $('tabelaEmpreendimentos').hidden = estado.empreendimentos.length === 0;
+    corpo.innerHTML = estado.empreendimentos.map(function (e) {
+      var c = contagem(e.id);
+      return '<tr data-id="' + e.id + '">' +
+        '<td><b>' + esc(e.nome) + '</b><br><small style="color: var(--texto-fraco)">' + esc(e.programa || '') + '</small></td>' +
+        '<td>' + esc([e.cidade, e.uf].filter(Boolean).join(' / ')) + '</td>' +
+        '<td>' + esc(NOMES.tipo[e.tipo] || e.tipo) + '</td>' +
+        '<td>' + etiqueta(e.status, NOMES.status_emp) + '</td>' +
+        '<td class="num">' + c.disponivel + '</td><td class="num">' + c.reservada + '</td><td class="num">' + c.vendida + '</td>' +
+        '<td><div class="acoes"><a class="botao botao--pequeno" href="#unidades" data-ver-unidades="' + e.id + '">Unidades</a>' + (podeEditar() ? '<button type="button" class="botao botao--pequeno" data-editar-emp="' + e.id + '">Editar</button>' : '') + '</div></td>' +
+      '</tr>';
+    }).join('');
+  }
+  $('tabelaEmpreendimentos').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-editar-emp]');
+    if (b) { abrirEmpreendimento(parseInt(b.getAttribute('data-editar-emp'), 10)); return; }
+    var v = ev.target.closest('[data-ver-unidades]');
+    if (v) { filtroEmpAtual = parseInt(v.getAttribute('data-ver-unidades'), 10); }
+  });
+
+  var filtroEmpAtual = null;
+  function opcoesEmpreendimentos(select, valor, comTodos) {
+    var html = comTodos ? '<option value="">Todos os empreendimentos</option>' : '';
+    html += estado.empreendimentos.map(function (e) { return '<option value="' + e.id + '">' + esc(e.nome) + '</option>'; }).join('');
+    select.innerHTML = html;
+    if (valor !== null && valor !== undefined && valor !== '') select.value = String(valor);
+    else if (!comTodos && estado.empreendimentos[0]) select.value = String(estado.empreendimentos[0].id);
+  }
+  function desenharUnidades() {
+    var sel = $('filtroEmpreendimento');
+    if (filtroEmpAtual === null && estado.empreendimentos[0]) filtroEmpAtual = estado.empreendimentos[0].id;
+    opcoesEmpreendimentos(sel, filtroEmpAtual, true);
+    var empId = sel.value ? parseInt(sel.value, 10) : null;
+    var status = $('filtroStatus').value;
+    var lista = estado.unidades.filter(function (u) { return (empId === null || u.empreendimento_id === empId) && (!status || u.status === status); });
+    var c = contagem(empId === null ? undefined : empId);
+    $('legendaUnidades').innerHTML =
+      '<span><i style="background: var(--verde)"></i>' + c.disponivel + ' disponíveis</span>' +
+      '<span><i style="background: var(--ambar)"></i>' + c.reservada + ' reservadas</span>' +
+      '<span><i style="background: var(--azul)"></i>' + c.vendida + ' vendidas</span>' +
+      '<span><i style="background: var(--cinza)"></i>' + c.indisponivel + ' indisponíveis</span>';
+    $('espelho').innerHTML = lista.map(function (u) {
+      var e = empPorId(u.empreendimento_id);
+      return '<button type="button" class="unidade" data-status="' + esc(u.status) + '" data-id="' + u.id + '" aria-label="' + esc(u.codigo + ', ' + (NOMES.status_unidade[u.status] || u.status)) + '">' +
+        '<b>' + esc(u.codigo) + '</b>' +
+        '<small>' + esc(u.quadra ? u.quadra : (empId === null && e ? e.nome : (NOMES.status_unidade[u.status] || ''))) + '</small>' +
+        (u.valor ? '<span class="valor">' + dinheiro.format(u.valor) + '</span>' : '') +
+      '</button>';
+    }).join('');
+    var vazio = $('unidadesVazio');
+    vazio.hidden = lista.length > 0;
+    $('unidadesVazioTexto').textContent = estado.empreendimentos.length === 0 ? 'Cadastre um empreendimento primeiro, na aba Empreendimentos.' : (status ? 'Nenhuma unidade com esse status.' : 'Cadastre uma por vez ou várias de uma vez.');
+    $('novaUnidade').disabled = estado.empreendimentos.length === 0;
+    $('novoLote').disabled = estado.empreendimentos.length === 0;
+  }
+  $('filtroEmpreendimento').addEventListener('change', function () { filtroEmpAtual = this.value ? parseInt(this.value, 10) : ''; desenharUnidades(); });
+  $('filtroStatus').addEventListener('change', desenharUnidades);
+  $('espelho').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.unidade');
+    if (b) abrirUnidade(parseInt(b.getAttribute('data-id'), 10));
+  });
+
+  function desenharEquipe() {
+    var corpo = $('tabelaEquipe').querySelector('tbody');
+    var eu = estado.perfil.user_id;
+    corpo.innerHTML = estado.perfis.map(function (p) {
+      var souEu = p.user_id === eu;
+      return '<tr data-user="' + esc(p.user_id) + '">' +
+        '<td><b>' + esc(p.nome) + '</b>' + (souEu ? ' <small style="color: var(--texto-fraco)">(você)</small>' : '') + '</td>' +
+        '<td>' + esc(p.email) + '</td>' +
+        '<td class="inteiro">' + esc(telefoneBonito(p.telefone)) + '</td>' +
+        '<td>' + (eGestor() && !souEu ? '<select class="papel-sel" data-papel-de="' + esc(p.user_id) + '" aria-label="Papel de ' + esc(p.nome) + '">' + ['gestor', 'administrativo', 'corretor'].map(function (x) { return '<option value="' + x + '"' + (x === p.papel ? ' selected' : '') + '>' + NOMES.papel[x] + '</option>'; }).join('') + '</select>' : etiqueta(p.papel, NOMES.papel)) + '</td>' +
+        '<td>' + (!p.ativo ? etiqueta('inativo', { inativo: 'Inativo' }) : !p.senha_definida ? etiqueta('pendente', { pendente: 'Convite pendente' }) : etiqueta('ativo', { ativo: 'Ativo' })) + '</td>' +
+        '<td>' + (eGestor() && !souEu ? '<button type="button" class="botao botao--pequeno" data-ativo-de="' + esc(p.user_id) + '" data-ativo="' + (p.ativo ? '1' : '0') + '">' + (p.ativo ? 'Desativar' : 'Reativar') + '</button>' : '') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+  $('tabelaEquipe').addEventListener('change', function (ev) {
+    var s = ev.target.closest('[data-papel-de]');
+    if (!s) return;
+    var uid = s.getAttribute('data-papel-de');
+    sb.from('crm_perfis').update({ papel: s.value }).eq('user_id', uid).then(function (r) {
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); recarregar('perfis'); return; }
+      avisar('Papel atualizado.', 'ok');
+      recarregar('perfis');
+    });
+  });
+  $('tabelaEquipe').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-ativo-de]');
+    if (!b) return;
+    var uid = b.getAttribute('data-ativo-de');
+    var ativar = b.getAttribute('data-ativo') === '0';
+    var p = estado.perfis.filter(function (x) { return x.user_id === uid; })[0];
+    if (!ativar && !window.confirm('Desativar ' + (p ? p.nome : 'esta pessoa') + '? Ela perde o acesso ao CRM na hora, mas o histórico fica.')) return;
+    sb.from('crm_perfis').update({ ativo: ativar }).eq('user_id', uid).then(function (r) {
+      if (r.error) { avisar(mensagemDeErro(r.error), 'erro'); return; }
+      avisar(ativar ? 'Acesso reativado.' : 'Acesso desativado.', 'ok');
+      recarregar('perfis');
+    });
+  });
+
+  /* ---- dialogos: abrir, fechar, salvar ---- */
+  Array.prototype.forEach.call(document.querySelectorAll('dialog'), function (d) {
+    d.addEventListener('click', function (ev) { if (ev.target === d) d.close(); });
+    Array.prototype.forEach.call(d.querySelectorAll('[data-fechar]'), function (b) { b.addEventListener('click', function () { d.close(); }); });
+  });
+  function abrir(d) { if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', ''); }
+
+  function abrirEmpreendimento(id) {
+    var e = id ? empPorId(id) : null;
+    $('dlgEmpreendimentoTitulo').textContent = e ? 'Editar empreendimento' : 'Novo empreendimento';
+    $('empId').value = e ? e.id : '';
+    $('empNome').value = e ? e.nome : '';
+    $('empCidade').value = e ? (e.cidade || '') : '';
+    $('empUf').value = e ? (e.uf || 'SP') : 'SP';
+    $('empTipo').value = e ? e.tipo : 'casas';
+    $('empStatus').value = e ? e.status : 'lancamento';
+    $('empPrograma').value = e ? (e.programa || '') : 'Minha Casa, Minha Vida';
+    $('empObs').value = e ? (e.observacoes || '') : '';
+    $('empErro').textContent = '';
+    $('empApagar').hidden = !(e && eGestor() && contagem(e.id).total === 0);
+    abrir($('dlgEmpreendimento'));
+    $('empNome').focus();
+  }
+  $('novoEmpreendimento').addEventListener('click', function () { abrirEmpreendimento(null); });
+  $('formEmpreendimento').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var erro = $('empErro'); erro.textContent = '';
+    var dados = {
+      nome: $('empNome').value.trim(), cidade: $('empCidade').value.trim() || null, uf: ($('empUf').value.trim().toUpperCase() || 'SP').slice(0, 2),
+      tipo: $('empTipo').value, status: $('empStatus').value, programa: $('empPrograma').value.trim() || 'Minha Casa, Minha Vida', observacoes: $('empObs').value.trim() || null
+    };
+    if (dados.nome.length < 2) { erro.textContent = 'Dê um nome ao empreendimento.'; return; }
+    if (dados.uf.length !== 2) { erro.textContent = 'UF com duas letras, como SP.'; return; }
+    var id = $('empId').value ? parseInt($('empId').value, 10) : null;
+    var botao = $('empSalvar'); botao.disabled = true;
+    var q = id ? sb.from('crm_empreendimentos').update(dados).eq('id', id).select().single() : sb.from('crm_empreendimentos').insert(dados).select().single();
+    q.then(function (r) {
+      botao.disabled = false;
+      if (r.error) { erro.textContent = mensagemDeErro(r.error); return; }
+      $('dlgEmpreendimento').close();
+      avisar(id ? 'Empreendimento atualizado.' : 'Empreendimento criado.', 'ok');
+      if (!id && r.data) filtroEmpAtual = r.data.id;
+      recarregar('empreendimentos');
+    });
+  });
+  $('empApagar').addEventListener('click', function () {
+    var id = parseInt($('empId').value, 10), e = empPorId(id);
+    if (!e || !window.confirm('Excluir "' + e.nome + '"? Só é possível porque ele não tem unidades.')) return;
+    sb.from('crm_empreendimentos').delete().eq('id', id).then(function (r) {
+      if (r.error) { $('empErro').textContent = mensagemDeErro(r.error); return; }
+      $('dlgEmpreendimento').close();
+      if (filtroEmpAtual === id) filtroEmpAtual = null;
+      avisar('Empreendimento excluído.', 'ok');
+      recarregar('empreendimentos');
+    });
+  });
+
+  function abrirUnidade(id) {
+    var u = id ? estado.unidades.filter(function (x) { return x.id === id; })[0] : null;
+    var edita = podeEditar();
+    $('dlgUnidadeTitulo').textContent = u ? (edita ? 'Editar unidade' : 'Unidade') : 'Nova unidade';
+    opcoesEmpreendimentos($('uniEmpreendimento'), u ? u.empreendimento_id : (filtroEmpAtual || null), false);
+    $('uniId').value = u ? u.id : '';
+    $('uniCodigo').value = u ? u.codigo : '';
+    $('uniQuadra').value = u ? (u.quadra || '') : '';
+    $('uniMetragem').value = u && u.metragem_m2 !== null ? u.metragem_m2 : '';
+    $('uniValor').value = u && u.valor !== null ? u.valor : '';
+    $('uniStatus').value = u ? u.status : 'disponivel';
+    $('uniObs').value = u ? (u.observacoes || '') : '';
+    $('uniErro').textContent = '';
+    ['uniEmpreendimento', 'uniCodigo', 'uniQuadra', 'uniMetragem', 'uniValor', 'uniStatus', 'uniObs'].forEach(function (c) { $(c).disabled = !edita; });
+    $('uniSalvar').hidden = !edita;
+    $('uniApagar').hidden = !(u && edita);
+    if (!u && !$('uniCodigo').value) { var e = empPorId(parseInt($('uniEmpreendimento').value, 10)); $('uniCodigo').placeholder = (e ? PREFIXO_POR_TIPO[e.tipo] : 'CASA') + ' 01'; }
+    abrir($('dlgUnidade'));
+    if (edita) $('uniCodigo').focus();
+  }
+  $('novaUnidade').addEventListener('click', function () { abrirUnidade(null); });
+  $('formUnidade').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (!podeEditar()) return;
+    var erro = $('uniErro'); erro.textContent = '';
+    var dados = {
+      empreendimento_id: parseInt($('uniEmpreendimento').value, 10), codigo: $('uniCodigo').value.trim().toUpperCase().replace(/\s+/g, ' '),
+      quadra: $('uniQuadra').value.trim() || null, metragem_m2: $('uniMetragem').value === '' ? null : parseFloat($('uniMetragem').value),
+      valor: $('uniValor').value === '' ? null : parseFloat($('uniValor').value), status: $('uniStatus').value, observacoes: $('uniObs').value.trim() || null
+    };
+    if (!dados.empreendimento_id) { erro.textContent = 'Escolha o empreendimento.'; return; }
+    if (!dados.codigo) { erro.textContent = 'Dê um código à unidade, como CASA 03.'; return; }
+    if (dados.valor !== null && !(dados.valor >= 0)) { erro.textContent = 'Valor inválido.'; return; }
+    var id = $('uniId').value ? parseInt($('uniId').value, 10) : null;
+    var botao = $('uniSalvar'); botao.disabled = true;
+    var q = id ? sb.from('crm_unidades').update(dados).eq('id', id).select().single() : sb.from('crm_unidades').insert(dados).select().single();
+    q.then(function (r) {
+      botao.disabled = false;
+      if (r.error) { erro.textContent = mensagemDeErro(r.error); return; }
+      $('dlgUnidade').close();
+      filtroEmpAtual = dados.empreendimento_id;
+      avisar(id ? 'Unidade atualizada.' : 'Unidade criada.', 'ok');
+      recarregar('unidades');
+    });
+  });
+  $('uniApagar').addEventListener('click', function () {
+    var id = parseInt($('uniId').value, 10), u = estado.unidades.filter(function (x) { return x.id === id; })[0];
+    if (!u || !window.confirm('Excluir a unidade ' + u.codigo + '?')) return;
+    sb.from('crm_unidades').delete().eq('id', id).then(function (r) {
+      if (r.error) { $('uniErro').textContent = mensagemDeErro(r.error); return; }
+      $('dlgUnidade').close();
+      avisar('Unidade excluída.', 'ok');
+      recarregar('unidades');
+    });
+  });
+
+  $('novoLote').addEventListener('click', function () {
+    opcoesEmpreendimentos($('loteEmpreendimento'), filtroEmpAtual || null, false);
+    var e = empPorId(parseInt($('loteEmpreendimento').value, 10));
+    $('lotePrefixo').value = e ? (PREFIXO_POR_TIPO[e.tipo] || 'CASA') : 'CASA';
+    $('loteErro').textContent = '';
+    abrir($('dlgLote'));
+  });
+  $('loteEmpreendimento').addEventListener('change', function () { var e = empPorId(parseInt(this.value, 10)); if (e) $('lotePrefixo').value = PREFIXO_POR_TIPO[e.tipo] || 'CASA'; });
+  function dois(n) { return (n < 10 ? '0' : '') + n; }
+  $('formLote').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (!podeEditar()) return;
+    var erro = $('loteErro'); erro.textContent = '';
+    var empId = parseInt($('loteEmpreendimento').value, 10);
+    var prefixo = $('lotePrefixo').value.trim().toUpperCase();
+    var de = parseInt($('loteDe').value, 10), ate = parseInt($('loteAte').value, 10);
+    var quadra = $('loteQuadra').value.trim() || null;
+    var metragem = $('loteMetragem').value === '' ? null : parseFloat($('loteMetragem').value);
+    var valor = $('loteValor').value === '' ? null : parseFloat($('loteValor').value);
+    if (!empId) { erro.textContent = 'Escolha o empreendimento.'; return; }
+    if (!prefixo) { erro.textContent = 'Dê um prefixo, como CASA ou LOTE.'; return; }
+    if (!(de >= 1 && ate >= de && ate - de < 500)) { erro.textContent = 'Informe "de" e "até" válidos (até 500 unidades por vez).'; return; }
+    var existentes = {};
+    estado.unidades.forEach(function (u) { if (u.empreendimento_id === empId) existentes[u.codigo] = true; });
+    var novas = [];
+    for (var n = de; n <= ate; n++) { var codigo = prefixo + ' ' + dois(n); if (!existentes[codigo]) novas.push({ empreendimento_id: empId, codigo: codigo, quadra: quadra, metragem_m2: metragem, valor: valor, status: 'disponivel' }); }
+    var puladas = (ate - de + 1) - novas.length;
+    if (!novas.length) { erro.textContent = 'Todas essas unidades já existem.'; return; }
+    var botao = $('loteSalvar'); botao.disabled = true;
+    sb.from('crm_unidades').insert(novas).select().then(function (r) {
+      botao.disabled = false;
+      if (r.error) { erro.textContent = mensagemDeErro(r.error); return; }
+      $('dlgLote').close();
+      filtroEmpAtual = empId;
+      avisar(novas.length + (novas.length === 1 ? ' unidade criada' : ' unidades criadas') + (puladas ? ', ' + puladas + ' já existiam' : '') + '.', 'ok');
+      recarregar('unidades');
+    });
+  });
+
+  /* ---- convidar: passa pela funcao api/convidar, com o token de quem esta logado ---- */
+  function telefoneBonito(t) {
+    var d = String(t || '').replace(/\D/g, '');
+    if (d.length === 13 && d.slice(0, 2) === '55') d = d.slice(2);
+    if (d.length === 11) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+    if (d.length === 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    return t || '';
+  }
+  $('convTelefone').addEventListener('input', function () { var d = this.value.replace(/\D/g, '').slice(0, 11); this.value = d.length > 6 ? '(' + d.slice(0, 2) + ') ' + d.slice(2, d.length > 10 ? 7 : 6) + '-' + d.slice(d.length > 10 ? 7 : 6) : d.length > 2 ? '(' + d.slice(0, 2) + ') ' + d.slice(2) : d; });
+  $('convidar').addEventListener('click', function () {
+    $('convNome').value = ''; $('convEmail').value = ''; $('convTelefone').value = ''; $('convPapel').value = 'corretor'; $('convErro').textContent = '';
+    abrir($('dlgConvite'));
+    $('convNome').focus();
+  });
+  $('formConvite').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (!eGestor()) return;
+    var erro = $('convErro'); erro.textContent = '';
+    var dados = { nome: $('convNome').value.trim(), email: $('convEmail').value.trim().toLowerCase(), papel: $('convPapel').value, telefone: $('convTelefone').value.replace(/\D/g, '') };
+    if (dados.nome.length < 2) { erro.textContent = 'Digite o nome.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.email)) { erro.textContent = 'Digite um e-mail válido.'; return; }
+    if (dados.telefone && dados.telefone.length < 10) { erro.textContent = 'WhatsApp com DDD, ou deixe em branco.'; return; }
+    if (dados.telefone) dados.telefone = '55' + dados.telefone;
+    var botao = $('convSalvar'); botao.disabled = true;
+    window.fetch('/api/convidar', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (estado.sessao && estado.sessao.access_token) }, body: JSON.stringify(dados) })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, corpo: j || {} }; }); })
+      .then(function (r) {
+        botao.disabled = false;
+        if (!r.corpo.ok) {
+          var m = r.corpo.motivo || '';
+          erro.textContent = r.status === 409 ? 'Esse e-mail já está na equipe' + (r.corpo.nome ? ' (' + r.corpo.nome + ')' : '') + '.' : r.status === 403 ? 'Só um gestor pode convidar.' : r.status === 401 ? 'Sua sessão expirou. Entre de novo.' : /SUPABASE/.test(m) ? 'O servidor ainda não tem as variáveis do Supabase configuradas.' : (m || 'Não consegui enviar o convite.');
+          return;
+        }
+        $('dlgConvite').close();
+        avisar(r.corpo.jaTinhaConta ? dados.nome + ' já tinha conta: entrou na equipe e pode entrar com a senha que já tem.' : 'Convite enviado para ' + dados.email + '.', 'ok');
+        recarregar('perfis');
+      })
+      .catch(function () { botao.disabled = false; erro.textContent = 'Sem conexão. Tente de novo.'; });
+  });
+
+  /* ---- arranque: link de convite ou de senha, depois a sessao ---- */
+  var url = new URL(window.location.href);
+  var parametros = url.hash.indexOf('access_token') >= 0 || url.hash.indexOf('type=') >= 0 ? new URLSearchParams(url.hash.replace(/^#/, '')) : null;
+  var tipoLink = (parametros && parametros.get('type')) || url.searchParams.get('type') || '';
+  if (tipoLink === 'invite' || tipoLink === 'recovery' || tipoLink === 'signup') estado.definirSenha = true;
+  var codigo = url.searchParams.get('code');
+  var prontoParaSessao = Promise.resolve();
+  if (codigo) {
+    prontoParaSessao = sb.auth.exchangeCodeForSession(codigo).then(function (r) {
+      if (r.error) avisar('Esse link não vale mais. Peça um novo.', 'erro');
+      else if (!estado.definirSenha) estado.definirSenha = true;   // chegou por link: e convite ou recuperacao de senha
+    });
+  }
+  if (codigo || tipoLink) window.history.replaceState(null, '', url.pathname + (estado.rota ? '' : ''));
+  prontoParaSessao.then(function () {
+    sb.auth.onAuthStateChange(function (evento, sessao) {
+      if (evento === 'PASSWORD_RECOVERY') estado.definirSenha = true;
+      if (evento === 'TOKEN_REFRESHED') { estado.sessao = sessao; return; }
+      aoMudarSessao(sessao);
+    });
+  });
+
+  /* para os testes */
+  window.CRM = { estado: estado, ir: ir, podeEditar: podeEditar, eGestor: eGestor, telefoneBonito: telefoneBonito };
+})();
+</script>
+</body>
+</html>
