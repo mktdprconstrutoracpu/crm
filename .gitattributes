@@ -1,0 +1,8 @@
+# Fim de linha sempre LF no repositorio, em qualquer sistema. No siteDPR o
+# fim de linha misto (CRLF e LF no mesmo arquivo) inflou diffs de 2 linhas
+# para 330; aqui isso nao acontece.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.pdf binary
